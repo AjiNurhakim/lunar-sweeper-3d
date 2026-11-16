@@ -1,0 +1,574 @@
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background-color: #0B0E17;
+    color: #F1F5F9;
+    user-select: none;
+}
+
+#canvas-container {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    cursor: grab;
+    touch-action: none;
+}
+
+#canvas-container:active {
+    cursor: grabbing;
+}
+
+#ui-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 20;
+}
+
+/* ==================== CLEAN BOXY HUD CARDS ==================== */
+.hud-card {
+    background-color: #171A23;
+    border-radius: 6px;
+    padding: 12px 14px;
+    pointer-events: auto !important;
+    border: 1px solid #232836;
+    z-index: 30;
+}
+
+#hud-top-left {
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    width: calc(100vw - 28px);
+    max-width: 270px;
+}
+
+.hud-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.hud-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hud-title {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: #F8FAFC;
+    text-transform: uppercase;
+}
+
+.indicator-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    display: inline-block;
+}
+
+.yellow-dot { background-color: #FACC15; }
+.cyan-dot { background-color: #38BDF8; }
+.green-dot { background-color: #4ADE80; }
+
+.badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background-color: #232836;
+    color: #94A3B8;
+}
+
+.progress-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.progress-labels {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.progress-labels .label {
+    color: #CBD5E1;
+}
+
+.progress-labels .value {
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.yellow-text { color: #FACC15; }
+.cyan-text { color: #38BDF8; }
+
+.progress-bar-bg {
+    position: relative;
+    width: 100%;
+    height: 8px;
+    background-color: #10131A;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background-color: #FACC15;
+    transition: width 0.15s ease-out;
+}
+
+.progress-bar-cyan {
+    background: linear-gradient(90deg, #0284C7, #38BDF8);
+}
+
+.btn-tiny-dump {
+    background: rgba(14, 165, 233, 0.16);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    color: #38BDF8;
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    line-height: 1.2;
+    transition: all 0.15s ease;
+}
+
+.btn-tiny-dump:hover {
+    background: #0284C7;
+    color: #FFFFFF;
+    border-color: #38BDF8;
+}
+
+@keyframes tankPulse {
+    0%, 100% { filter: drop-shadow(0 0 2px #38BDF8); opacity: 1; }
+    50% { filter: drop-shadow(0 0 6px #FACC15); opacity: 0.88; }
+}
+
+.pulse-tank {
+    animation: tankPulse 1.2s infinite ease-in-out;
+}
+
+.mt-2 {
+    margin-top: 8px;
+}
+
+.pt-1 {
+    padding-top: 4px;
+}
+
+/* ==================== TUNING PANEL (TOP RIGHT) ==================== */
+.tuning-card {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    width: calc(100vw - 28px);
+    max-width: 320px;
+    max-height: calc(100vh - 28px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+}
+
+.tuning-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background-color: #1E222E;
+    border-bottom: 1px solid #232836;
+    shrink: 0;
+}
+
+.tuning-title {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    color: #F8FAFC;
+    text-transform: uppercase;
+}
+
+.icon-toggle-btn {
+    background-color: #282D3D;
+    border: none;
+    color: #E2E8F0;
+    width: 24px;
+    height: 22px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s;
+}
+
+.icon-toggle-btn:hover {
+    background-color: #343B4F;
+}
+
+/* Settings Tabs */
+.settings-tabs {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    background-color: #13161E;
+    padding: 4px;
+    gap: 3px;
+    shrink: 0;
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    color: #94A3B8;
+    font-size: 9.5px;
+    font-weight: 700;
+    font-family: inherit;
+    padding: 6px 2px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.tab-btn:hover {
+    color: #E2E8F0;
+}
+
+.tab-btn.active {
+    background-color: #282D3D;
+    color: #F8FAFC;
+}
+
+.tuning-body {
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    max-height: calc(100vh - 90px);
+}
+
+.tab-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.tuning-row {
+    background-color: #1E222E;
+    padding: 8px 10px;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tuning-label-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 600;
+    color: #CBD5E1;
+}
+
+.tuning-val {
+    font-weight: 800;
+    color: #FACC15;
+}
+
+.tuning-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.tuning-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+}
+
+.tuning-help {
+    background-color: #10131A;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 10px;
+    color: #94A3B8;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+}
+
+.tuning-help b {
+    color: #E2E8F0;
+}
+
+/* ==================== JSON TAB ==================== */
+.json-intro {
+    font-size: 10.5px;
+    color: #94A3B8;
+    line-height: 1.45;
+}
+
+.json-textarea {
+    width: 100%;
+    background-color: #10131A;
+    border: 1px solid #232836;
+    border-radius: 4px;
+    color: #38BDF8;
+    font-family: monospace;
+    font-size: 10px;
+    padding: 8px;
+    outline: none;
+    resize: none;
+}
+
+/* ==================== FLAT SELECT DROPDOWN ==================== */
+.flat-select {
+    width: 100%;
+    background-color: #12151E;
+    color: #F8FAFC;
+    border: 1px solid #282D3D;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: inherit;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s, background-color 0.15s;
+}
+
+.flat-select:hover, .flat-select:focus {
+    border-color: #38BDF8;
+    background-color: #171A24;
+}
+
+.flat-select option {
+    background-color: #12151E;
+    color: #F8FAFC;
+}
+
+/* ==================== FLAT MINIMALIST SLIDER ==================== */
+input[type="range"].flat-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    background: #2C3140;
+    border-radius: 3px;
+    outline: none;
+    border: none;
+    cursor: pointer;
+}
+
+input[type="range"].flat-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    background: #FACC15;
+    cursor: pointer;
+    border: none;
+}
+
+input[type="range"].flat-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    background: #FACC15;
+    cursor: pointer;
+    border: none;
+}
+
+/* ==================== BUTTONS ==================== */
+.btn {
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: background-color 0.15s, transform 0.08s;
+}
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+.btn-yellow-full {
+    width: 100%;
+    background-color: #FACC15;
+    color: #11131A;
+    font-weight: 800;
+}
+
+.btn-yellow-full:hover {
+    background-color: #FDE047;
+}
+
+.btn-toggle-active {
+    background-color: #FACC15;
+    color: #11131A;
+    font-weight: 800;
+}
+
+.btn-toggle-inactive {
+    background-color: #282D3D;
+    color: #94A3B8;
+    font-weight: 600;
+}
+
+.btn-toggle-cyan {
+    background-color: #38BDF8;
+    color: #11131A;
+    font-weight: 800;
+}
+
+.btn-dark {
+    background-color: #252A38;
+    color: #E2E8F0;
+    font-weight: 600;
+}
+
+.btn-dark:hover {
+    background-color: #303749;
+}
+
+.btn-primary {
+    width: 100%;
+    background-color: #4ADE80;
+    color: #0B1117;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.btn-primary:hover {
+    background-color: #86EFAC;
+}
+
+/* ==================== VICTORY CARD ==================== */
+.victory-card {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(100vw - 32px);
+    max-width: 380px;
+    background-color: #171A23;
+    border: 1px solid #4ADE80;
+    box-shadow: 0 0 24px rgba(74, 222, 128, 0.15);
+    z-index: 50;
+}
+
+.launch-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.launch-badge {
+    font-size: 12px;
+    font-weight: 800;
+    color: #4ADE80;
+    text-transform: uppercase;
+}
+
+.launch-desc {
+    font-size: 11px;
+    color: #CBD5E1;
+    line-height: 1.5;
+    margin-bottom: 14px;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #94A3B8;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.close-btn:hover {
+    color: #F8FAFC;
+}
+
+/* ==================== TOUCH ZONE & JOYSTICK ==================== */
+#touch-zone {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none !important; /* Visual indicator only, NEVER blocks clicks */
+}
+
+#joystick-base {
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background-color: rgba(35, 40, 54, 0.45);
+    border: 2px solid rgba(250, 204, 21, 0.35);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+#joystick-knob {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background-color: #FACC15;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 10px rgba(250, 204, 21, 0.5);
+    pointer-events: none;
+}
+
+/* ==================== TOAST ==================== */
+.toast {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #1E222E;
+    color: #F8FAFC;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: 1px solid #282D3D;
+    z-index: 100;
+    pointer-events: auto;
+    transition: opacity 0.2s;
+}
+
+.hidden {
+    display: none !important;
+}

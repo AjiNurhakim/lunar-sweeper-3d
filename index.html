@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lunar Sweeper 3D — Moon Cleaning Game</title>
+    <!-- Modern Font: Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./src/style.css">
+</head>
+<body>
+    <!-- 3D Canvas Viewport -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlay Layer -->
+    <div id="ui-layer">
+        <!-- Top Left: Moon Status & Cleanliness Progress -->
+        <header id="hud-top-left" class="hud-card">
+            <div class="hud-header">
+                <div class="hud-title-wrap">
+                    <span class="indicator-dot yellow-dot"></span>
+                    <span class="hud-title">LUNAR SWEEPER</span>
+                </div>
+                <span id="hud-moon-badge" class="badge">Seed #101 • Lavender</span>
+            </div>
+
+            <div class="progress-wrap">
+                <div class="progress-labels">
+                    <span class="label">Permukaan Bersih</span>
+                    <span id="hud-clean-pct" class="value yellow-text">0.0%</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div id="hud-clean-bar" class="progress-bar-fill" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="progress-wrap mt-2">
+                <div class="progress-labels">
+                    <span class="label">Tangki Vakum</span>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span id="hud-tank-val" class="value cyan-text">0 / 100 kg</span>
+                        <button id="btn-empty-tank" class="btn-tiny-dump" title="Kosongkan Tangki (E)">Buang</button>
+                    </div>
+                </div>
+                <div class="progress-bar-bg">
+                    <div id="hud-tank-bar" class="progress-bar-fill progress-bar-cyan" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <button id="btn-random-moon" class="btn btn-yellow-full mt-2">
+                🎲 Random Moon
+            </button>
+        </header>
+
+        <!-- Top Right: Comprehensive Tabbed Settings & Game Feel Panel -->
+        <aside id="ui-tuning-panel" class="hud-card tuning-card">
+            <!-- Panel Header -->
+            <div class="tuning-header">
+                <div class="hud-title-wrap">
+                    <span class="indicator-dot cyan-dot"></span>
+                    <span class="tuning-title">PENGATURAN & FEEL</span>
+                </div>
+                <button id="btn-toggle-panel" class="icon-toggle-btn" title="Minimize / Expand">
+                    <span id="toggle-icon">−</span>
+                </button>
+            </div>
+
+            <div id="tuning-body" class="tuning-body">
+                <!-- Tab Navigation (5 Tabs) -->
+                <nav class="settings-tabs">
+                    <button class="tab-btn active" data-tab="probe">🏎️ Probe</button>
+                    <button class="tab-btn" data-tab="camera">🎥 Kamera</button>
+                    <button class="tab-btn" data-tab="moon">🌕 Bulan</button>
+                    <button class="tab-btn" data-tab="tank">🧪 Tangki</button>
+                    <button class="tab-btn" data-tab="save">💾 JSON</button>
+                </nav>
+
+                <!-- TAB 1: PROBE & HANDLING -->
+                <div id="tab-probe" class="tab-pane active">
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Kecepatan Probe</span>
+                            <span id="val-speed" class="tuning-val">1.00x</span>
+                        </div>
+                        <input id="inp-speed" type="range" min="0.30" max="2.60" step="0.05" value="1.00" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Akselerasi Gas</span>
+                            <span id="val-accel" class="tuning-val">5.50</span>
+                        </div>
+                        <input id="inp-accel" type="range" min="2.0" max="10.0" step="0.5" value="5.5" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Kelincahan Belok</span>
+                            <span id="val-turn" class="tuning-val">2.35</span>
+                        </div>
+                        <input id="inp-turn" type="range" min="1.0" max="4.5" step="0.1" value="2.35" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Lebar Sweeper</span>
+                            <span id="val-width" class="tuning-val">0.24</span>
+                        </div>
+                        <input id="inp-width" type="range" min="0.12" max="0.48" step="0.02" value="0.24" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Daya Sikat (Efisiensi)</span>
+                            <span id="val-power" class="tuning-val">100%</span>
+                        </div>
+                        <input id="inp-power" type="range" min="0.25" max="2.00" step="0.05" value="1.00" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Suspensi Pitch (Ngangkat/Nunduk)</span>
+                            <span id="val-susp-pitch" class="tuning-val">1.00x</span>
+                        </div>
+                        <input id="inp-susp-pitch" type="range" min="0.0" max="2.0" step="0.1" value="1.0" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Suspensi Roll (Miring Belok)</span>
+                            <span id="val-susp-roll" class="tuning-val">1.00x</span>
+                        </div>
+                        <input id="inp-susp-roll" type="range" min="0.0" max="2.0" step="0.1" value="1.0" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Durasi Jejak Roda (Fade)</span>
+                            <span id="val-trail-fade" class="tuning-val">4.5s</span>
+                        </div>
+                        <input id="inp-trail-fade" type="range" min="1.0" max="12.0" step="0.5" value="4.5" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-grid-2 pt-1">
+                        <button id="btn-toggle-trails" class="btn btn-toggle-active">
+                            Jejak: Aktif
+                        </button>
+                        <button id="btn-toggle-sound" class="btn btn-dark">
+                            <span id="icon-sound">🔊 Suara: On</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TAB 2: KAMERA (TAB KHUSUS KAMERA) -->
+                <div id="tab-camera" class="tab-pane hidden">
+                    <button id="btn-toggle-comfort" class="btn btn-toggle-cyan w-full mb-1 py-2 text-xs font-bold tracking-wide">
+                        🛋️ Mode Anti-Pusing: Aktif
+                    </button>
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Jarak Kamera (Distance)</span>
+                            <span id="val-cam-dist" class="tuning-val">1.85</span>
+                        </div>
+                        <input id="inp-cam-dist" type="range" min="1.00" max="4.50" step="0.05" value="1.85" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Tinggi Kamera (Height)</span>
+                            <span id="val-cam-height" class="tuning-val">0.52</span>
+                        </div>
+                        <input id="inp-cam-height" type="range" min="0.15" max="1.50" step="0.05" value="0.52" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Sudut Pitch Kamera</span>
+                            <span id="val-cam-pitch" class="tuning-val">0.42</span>
+                        </div>
+                        <input id="inp-cam-pitch" type="range" min="0.10" max="1.20" step="0.02" value="0.42" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Field of View (FOV)</span>
+                            <span id="val-cam-fov" class="tuning-val">52°</span>
+                        </div>
+                        <input id="inp-cam-fov" type="range" min="30" max="75" step="1" value="52" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Kehalusan Kamera (Smooth)</span>
+                            <span id="val-cam-smooth" class="tuning-val">8.0</span>
+                        </div>
+                        <input id="inp-cam-smooth" type="range" min="3.0" max="18.0" step="1.0" value="8.0" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-grid-2 pt-1">
+                        <button id="btn-toggle-cam" class="btn btn-toggle-cyan">
+                            Kamera: Ikuti
+                        </button>
+                        <button id="btn-reset-cam" class="btn btn-dark">
+                            Reset Sudut
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TAB 3: BULAN & SHADING -->
+                <div id="tab-moon" class="tab-pane hidden">
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Ukuran Bulan</span>
+                            <span id="val-moon-scale" class="tuning-val">1.00x</span>
+                        </div>
+                        <input id="inp-moon-scale" type="range" min="0.80" max="6.00" step="0.10" value="1.00" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Tinggi Lapisan Debu</span>
+                            <span id="val-dirt-height" class="tuning-val">0.012</span>
+                        </div>
+                        <input id="inp-dirt-height" type="range" min="0.004" max="0.035" step="0.002" value="0.012" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Kelembutan Shading Clay</span>
+                            <span id="val-softness" class="tuning-val">0.55</span>
+                        </div>
+                        <input id="inp-softness" type="range" min="0.20" max="0.80" step="0.05" value="0.55" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Kecerahan Bayangan Pastel</span>
+                            <span id="val-shadow-bright" class="tuning-val">0.48</span>
+                        </div>
+                        <input id="inp-shadow-bright" type="range" min="0.20" max="0.75" step="0.02" value="0.48" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Intensitas Cahaya</span>
+                            <span id="val-intensity" class="tuning-val">1.15</span>
+                        </div>
+                        <input id="inp-intensity" type="range" min="0.80" max="1.60" step="0.05" value="1.15" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Pemandangan Angkasa</span>
+                            <span id="val-space-preset" class="tuning-val text-cyan-400">Otomatis</span>
+                        </div>
+                        <select id="sel-space-preset" class="flat-select">
+                            <option value="auto">🎲 Acak Otomatis (Per Bulan)</option>
+                            <option value="void">🌌 Deep Space Voyager</option>
+                            <option value="nebula">💜 Violet Dream Nebula</option>
+                            <option value="sunset">🌅 Solar Horizon (Matahari Emas)</option>
+                            <option value="emerald">🪐 Emerald Titan (Planet Cincin)</option>
+                            <option value="aurora">✨ Aurora Borealis (Cahaya Polar)</option>
+                            <option value="comet">☄️ Glacial Comet & Neptunus</option>
+                            <option value="supernova">🔴 Crimson Supernova</option>
+                            <option value="blackhole">🕳️ Gargantua Black Hole</option>
+                            <option value="asteroid">🪨 Sabuk Asteroid</option>
+                            <option value="synthwave">🌆 Neon Synthwave</option>
+                        </select>
+                    </div>
+
+                    <div class="tuning-grid-2 pt-1">
+                        <button id="btn-refill-dirt" class="btn btn-dark">
+                            Isi Ulang Debu
+                        </button>
+                        <button id="btn-random-moon-tab" class="btn btn-yellow-full">
+                            🎲 Random Moon
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TAB 4: TANGKI DEBU & VACUUM (DEBUG & TUNING) -->
+                <div id="tab-tank" class="tab-pane hidden">
+                    <div class="tuning-label-row pb-1">
+                        <span class="text-xs font-bold text-slate-300">⚡ Aksi Cepat Debug Debu</span>
+                    </div>
+                    <div class="tuning-grid-3 pb-2">
+                        <button id="btn-fill-100" class="btn btn-yellow-full text-xs py-1.5 font-bold">
+                            ⚡ 100%
+                        </button>
+                        <button id="btn-fill-50" class="btn btn-toggle-cyan text-xs py-1.5 font-bold">
+                            ✨ 50%
+                        </button>
+                        <button id="btn-fill-0" class="btn btn-dark text-xs py-1.5 font-bold">
+                            🗑️ 0%
+                        </button>
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Level Isi Manual</span>
+                            <span id="val-debug-tank-fill" class="tuning-val">0%</span>
+                        </div>
+                        <input id="inp-debug-tank-fill" type="range" min="0" max="100" step="1" value="0" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Kapasitas Tangki (Dust)</span>
+                            <span id="val-tank-capacity" class="tuning-val">100</span>
+                        </div>
+                        <input id="inp-tank-capacity" type="range" min="30" max="500" step="10" value="100" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Kecepatan Sedot (Fill Speed)</span>
+                            <span id="val-tank-speed" class="tuning-val">1.00x</span>
+                        </div>
+                        <input id="inp-tank-speed" type="range" min="0.20" max="4.00" step="0.10" value="1.00" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Intensitas Pijar (Glow)</span>
+                            <span id="val-tank-glow" class="tuning-val">0.65</span>
+                        </div>
+                        <input id="inp-tank-glow" type="range" min="0.10" max="2.00" step="0.05" value="0.65" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Transparansi Kaca Kapsul</span>
+                            <span id="val-tank-glass" class="tuning-val">0.28</span>
+                        </div>
+                        <input id="inp-tank-glass" type="range" min="0.10" max="0.75" step="0.02" value="0.28" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Warna Kilau Debu</span>
+                            <span id="val-tank-color" class="tuning-val text-cyan-400">Sesuai Bulan</span>
+                        </div>
+                        <select id="sel-tank-color" class="flat-select">
+                            <option value="palette">🎨 Sesuai Palet Bulan</option>
+                            <option value="cyan">💎 Cyan Plasma</option>
+                            <option value="gold">⭐ Radiant Gold</option>
+                            <option value="magenta">🌸 Magenta Stardust</option>
+                            <option value="emerald">🍀 Emerald Auroral</option>
+                            <option value="amethyst">🔮 Amethyst Cosmic</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- TAB 5: SIMPAN & EKSPOR JSON -->
+                <div id="tab-save" class="tab-pane hidden">
+                    <p class="json-intro">
+                        Simpan pengaturan game feel ini ke berkas JSON lalu kirimkan kembali agar dijadikan preset bawaan (*default*) game!
+                    </p>
+
+                    <div class="tuning-grid-2">
+                        <button id="btn-copy-json" class="btn btn-yellow-full">
+                            📋 Salin ke Clipboard
+                        </button>
+                        <button id="btn-download-json" class="btn btn-toggle-cyan">
+                            💾 Unduh .JSON
+                        </button>
+                    </div>
+
+                    <textarea id="txt-json-preview" rows="7" readonly class="json-textarea"></textarea>
+
+                    <div class="tuning-grid-2 pt-1">
+                        <button id="btn-reset-default" class="btn btn-dark">
+                            🔄 Reset Default
+                        </button>
+                        <button id="btn-apply-pasted-json" class="btn btn-dark">
+                            📥 Terapkan Input
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Help -->
+                <div class="tuning-help">
+                    <span>Gerak: <b>WASD / Panah</b></span>
+                    <span>Kamera: <b>Drag / Scroll</b></span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Victory Banner saat >= 98% Bersih -->
+        <div id="victory-banner" class="hud-card victory-card hidden">
+            <div class="launch-header">
+                <span class="launch-badge">✨ BULAN BERSIH SEMPURNA!</span>
+                <button id="btn-close-victory" class="close-btn">×</button>
+            </div>
+            <p class="launch-desc">
+                Seluruh lapisan kotoran berhasil disapu bersih! Buat bulan acak baru untuk sensasi berikutnya.
+            </p>
+            <button id="btn-victory-next" class="btn btn-primary">
+                🎲 Generate Bulan Baru
+            </button>
+        </div>
+
+        <!-- Dynamic Floating Virtual Joystick Indicator (Visual Only — pointer-events: none) -->
+        <div id="touch-zone">
+            <div id="joystick-base" class="hidden">
+                <div id="joystick-knob"></div>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div id="toast" class="toast hidden">Notifikasi</div>
+    </div>
+
+    <!-- Main Entry Module -->
+    <script type="module" src="./src/main.ts"></script>
+</body>
+</html>
