@@ -30,6 +30,10 @@ export interface TrailerCart {
     targetRoll: number;
     visualFill: number;
     targetFill: number;
+    axlePos: THREE.Vector3;
+    hitchPos: THREE.Vector3;
+    forward: THREE.Vector3;
+    up: THREE.Vector3;
 }
 
 export class Rover {
@@ -112,6 +116,7 @@ export class Rover {
     private _tmpCartLeft = new THREE.Vector3();
     private _tmpCartRight = new THREE.Vector3();
     private _tmpCartHitch = new THREE.Vector3();
+    private _tmpHitchPoint = new THREE.Vector3();
 
     constructor(moon: Moon) {
         this.moon = moon;
@@ -361,15 +366,9 @@ export class Rover {
         this.updateSweeperVisualWidth();
     }
 
-    private buildSingleCart(index: number, parent: THREE.Group, tankScale: number, tankLength: number): TrailerCart {
+    private buildSingleCart(index: number, tankScale: number, tankLength: number): TrailerCart {
         const pivotGroup = new THREE.Group();
-        if (index === 0) {
-            pivotGroup.position.set(0, 0.022, -0.065);
-        } else {
-            // Attached to the rear hitch ball of the preceding cart
-            pivotGroup.position.set(0, 0.004, -0.098);
-        }
-        parent.add(pivotGroup);
+        this.moon.group.add(pivotGroup);
 
         // Trailer Tongue / Hitch
         const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.008, 0.024), this.darkChassisMat);
@@ -598,31 +597,78 @@ export class Rover {
             roll: 0,
             targetRoll: 0,
             visualFill: 0,
-            targetFill: 0
+            targetFill: 0,
+            axlePos: new THREE.Vector3(),
+            hitchPos: new THREE.Vector3(),
+            forward: new THREE.Vector3(0, 0, 1),
+            up: new THREE.Vector3(0, 1, 0)
         };
     }
 
     public rebuildCarts(count: number): void {
         const targetCount = THREE.MathUtils.clamp(Math.round(count), 1, 5);
 
-        // Detach existing cart chain
-        if (this.trailerCarts.length > 0 && this.trailerCarts[0].pivotGroup.parent) {
-            this.trailerCarts[0].pivotGroup.parent.remove(this.trailerCarts[0].pivotGroup);
+        // Detach existing cart chain from moon.group
+        for (const cart of this.trailerCarts) {
+            if (cart.pivotGroup.parent) {
+                cart.pivotGroup.parent.remove(cart.pivotGroup);
+            }
         }
         this.trailerCarts = [];
 
         const tankScale = THREE.MathUtils.clamp(ConfigManager.current.tankScale || 1.0, 0.5, 2.5);
         const tankLength = THREE.MathUtils.clamp(ConfigManager.current.tankLength || 1.0, 0.5, 2.5);
-        let parentGroup: THREE.Group = this.visualBodyGroup;
 
         for (let i = 0; i < targetCount; i++) {
-            const cart = this.buildSingleCart(i, parentGroup, tankScale, tankLength);
+            const cart = this.buildSingleCart(i, tankScale, tankLength);
             this.trailerCarts.push(cart);
-            parentGroup = cart.pivotGroup;
         }
 
+        this.initCartPositions();
         this.syncAliases();
         this.updateAllCartsStyle();
+    }
+
+    public initCartPositions(): void {
+        const invMoonScale = 1.0 / Math.max(0.1, this.moon.moonScale);
+        const axleDist = 0.052 * invMoonScale;
+        const rearDist = 0.046 * invMoonScale;
+
+        // Rover rear hitch in moon.group coordinates
+        this._tmpCartHitch.set(0, 0.022, -0.065);
+        this.visualBodyGroup.localToWorld(this._tmpCartHitch);
+        this.moon.group.worldToLocal(this._tmpCartHitch);
+        const currentHitch = this._tmpCartHitch.clone();
+
+        // Reverse tangent heading on moon
+        const backDir = this.forward.clone().negate().normalize();
+
+        for (let i = 0; i < this.trailerCarts.length; i++) {
+            const cart = this.trailerCarts[i];
+            cart.hitchPos.copy(currentHitch);
+
+            // Place axle along reverse heading from hitch
+            cart.axlePos.copy(currentHitch).addScaledVector(backDir, axleDist);
+            const u = cart.axlePos.clone().normalize();
+            const r = this.moon.sampleActualSurfaceRadiusAt(u.x, u.y, u.z);
+            cart.axlePos.copy(u).multiplyScalar(r + 0.018 * invMoonScale);
+
+            cart.forward.subVectors(cart.hitchPos, cart.axlePos).normalize();
+            cart.up.copy(u);
+
+            this._tmpLeft.crossVectors(cart.up, cart.forward).normalize();
+            this._tmpSlopeNormal.crossVectors(cart.forward, this._tmpLeft).normalize();
+
+            this._tmpBasisMat.makeBasis(this._tmpLeft, this._tmpSlopeNormal, cart.forward);
+            cart.pivotGroup.position.copy(cart.hitchPos);
+            cart.pivotGroup.quaternion.setFromRotationMatrix(this._tmpBasisMat);
+            cart.pivotGroup.scale.setScalar(invMoonScale);
+            cart.pivotGroup.updateMatrixWorld(true);
+
+            // Compute next hitch ball position
+            currentHitch.copy(cart.axlePos).addScaledVector(cart.forward, -rearDist);
+            currentHitch.addScaledVector(this._tmpSlopeNormal, 0.004 * invMoonScale);
+        }
     }
 
     public updateTankScale(scale: number): void {
@@ -811,6 +857,7 @@ export class Rover {
 
         this.syncAliases();
         this.applyConfig();
+        this.initCartPositions();
         this.updateTransform(0.016);
     }
 
@@ -897,25 +944,11 @@ export class Rover {
         for (let i = 0; i < this.frontWheelPivots.length; i++) {
             this.frontWheelPivots[i].rotation.y = this.steerAngle;
         }
-        // Cart wheels spin and trailer train articulation
+        // Cart wheels spin
         for (let i = 0; i < this.trailerCarts.length; i++) {
             const cart = this.trailerCarts[i];
             for (let w = 0; w < cart.cartWheelMeshes.length; w++) {
                 cart.cartWheelMeshes[w].rotation.x = this.wheelSpin;
-            }
-
-            let targetYaw = 0;
-            if (i === 0) {
-                targetYaw = THREE.MathUtils.clamp(-this.steerAngle * 0.70, -0.38, 0.38);
-            } else {
-                const prevCart = this.trailerCarts[i - 1];
-                targetYaw = THREE.MathUtils.clamp(prevCart.yaw * 0.82, -0.38, 0.38);
-            }
-            cart.targetYaw = targetYaw;
-            const springRate = Math.max(4.0, 8.5 - i * 0.9);
-            cart.yaw += (targetYaw - cart.yaw) * (1 - Math.exp(-springRate * dt));
-            if (cart.pivotGroup) {
-                cart.pivotGroup.rotation.y = cart.yaw;
             }
         }
 
@@ -1077,81 +1110,85 @@ export class Rover {
         this.group.quaternion.setFromRotationMatrix(this._tmpBasisMat);
 
         // -------------------------------------------------------------
-        // TERRAIN GROUND CONTOURING & CRATER CONFORMANCE FOR ALL CARTS
+        // SURFACE KINEMATICS & TERRAIN CONFORMANCE FOR ALL CARTS
         // -------------------------------------------------------------
         this.group.updateMatrixWorld(true);
+
+        const axleDist = 0.052 * invMoonScale;
+
+        // 1. Rover rear hitch in moon.group coordinates
+        this._tmpCartHitch.set(0, 0.022, -0.065);
+        this.visualBodyGroup.localToWorld(this._tmpCartHitch);
+        this.moon.group.worldToLocal(this._tmpCartHitch);
+        this._tmpHitchPoint.copy(this._tmpCartHitch);
 
         for (let i = 0; i < this.trailerCarts.length; i++) {
             const cart = this.trailerCarts[i];
             if (!cart.pivotGroup) continue;
 
-            // 1. Set nominal orientation (with yaw, but unpitched and unrolled) to sample ground accurately
-            cart.pivotGroup.rotation.order = 'YXZ';
-            cart.pivotGroup.rotation.set(0, cart.yaw, 0);
-            cart.pivotGroup.updateMatrixWorld(true);
+            cart.hitchPos.copy(this._tmpHitchPoint);
 
-            // 2. Sample nominal axle position in moon local coordinate space
-            // Wheel axle center point in cart local space: (0, 0, -0.052)
-            this._tmpCartCenter.set(0, 0, -0.052);
-            cart.pivotGroup.localToWorld(this._tmpCartCenter);
-            this.moon.group.worldToLocal(this._tmpCartCenter);
+            // Direction from axle to hitch
+            this._tmpForward.subVectors(cart.hitchPos, cart.axlePos);
+            const currentDist = this._tmpForward.length();
+            if (currentDist > 0.0001) {
+                this._tmpForward.multiplyScalar(1.0 / currentDist);
+            } else {
+                this._tmpForward.copy(cart.forward);
+            }
 
-            // Left wheel: (-0.049, 0, -0.052)
-            this._tmpCartLeft.set(-0.049, 0, -0.052);
-            cart.pivotGroup.localToWorld(this._tmpCartLeft);
-            this.moon.group.worldToLocal(this._tmpCartLeft);
+            // Pull axle towards hitch maintaining rigid drawbar distance
+            cart.axlePos.copy(cart.hitchPos).addScaledVector(this._tmpForward, -axleDist);
 
-            // Right wheel: (0.049, 0, -0.052)
-            this._tmpCartRight.set(0.049, 0, -0.052);
-            cart.pivotGroup.localToWorld(this._tmpCartRight);
-            this.moon.group.worldToLocal(this._tmpCartRight);
+            // Project axle directly onto lunar ground terrain (Anti-Nembus 100%)
+            const u = this._tmpSlopeNormal.copy(cart.axlePos).normalize();
+            const groundRadiusCenter = this.moon.sampleActualSurfaceRadiusAt(u.x, u.y, u.z);
+            cart.axlePos.copy(u).multiplyScalar(groundRadiusCenter + 0.018 * invMoonScale);
 
-            // 3. Sample actual terrain height beneath cart's wheels
-            const dirCenter = this._tmpSlopeNormal.copy(this._tmpCartCenter).normalize();
-            const groundRadiusCenter = this.moon.sampleActualSurfaceRadiusAt(dirCenter.x, dirCenter.y, dirCenter.z);
+            // Recompute exact 3D heading from ground axle to hitch
+            this._tmpForward.subVectors(cart.hitchPos, cart.axlePos).normalize();
+            cart.forward.copy(this._tmpForward);
+            cart.up.copy(u);
 
-            const dirLeft = this._tmpLeft.copy(this._tmpCartLeft).normalize();
-            const groundRadiusLeft = this.moon.sampleActualSurfaceRadiusAt(dirLeft.x, dirLeft.y, dirLeft.z);
+            // Compute left vector tangent to terrain
+            this._tmpLeft.crossVectors(cart.up, this._tmpForward).normalize();
 
-            const dirRight = this._tmpForward.copy(this._tmpCartRight).normalize();
-            const groundRadiusRight = this.moon.sampleActualSurfaceRadiusAt(dirRight.x, dirRight.y, dirRight.z);
+            // Transverse roll sampling (left and right wheel slope)
+            this._tmpCartLeft.copy(cart.axlePos).addScaledVector(this._tmpLeft, 0.049 * invMoonScale);
+            this._tmpCartRight.copy(cart.axlePos).addScaledVector(this._tmpLeft, -0.049 * invMoonScale);
 
-            // Expected wheel axle altitude above moon surface (tire radius = 0.018 scaled to moon space)
-            const desiredAxleAltitude = 0.018 * invMoonScale;
-            const currentAxleAltitude = this._tmpCartCenter.length() - groundRadiusCenter;
+            const dirL = this._tmpCartCenter.copy(this._tmpCartLeft).normalize();
+            const rL = this.moon.sampleActualSurfaceRadiusAt(dirL.x, dirL.y, dirL.z);
 
-            // If currentAxleAltitude > desiredAxleAltitude, cart is floating above ground!
-            // In Three.js with cart extending backward (-Z), negative pitch (-X rotation) tilts wheels DOWN.
-            const altitudeDiff = currentAxleAltitude - desiredAxleAltitude;
-            const wheelBase = 0.052 * invMoonScale;
+            const dirR = this._tmpCartCenter.copy(this._tmpCartRight).normalize();
+            const rR = this.moon.sampleActualSurfaceRadiusAt(dirR.x, dirR.y, dirR.z);
 
-            // Pitch tilts down into craters (-) and tilts up over bumps/ridges (+)
-            // Strictly clamp to prevent extreme bending or runaway scorpion tail curls
-            const targetPitch = THREE.MathUtils.clamp(
-                -Math.atan2(altitudeDiff, wheelBase),
+            const rollDiff = rL - rR;
+            const targetRoll = THREE.MathUtils.clamp(
+                Math.atan2(rollDiff, 2 * 0.049 * invMoonScale),
                 -0.35,
                 0.35
             );
-
-            // Roll leans with transverse crater slope
-            const rollDiff = groundRadiusLeft - groundRadiusRight;
-            const trackWidth = (2 * 0.049) * invMoonScale;
-            const targetRoll = THREE.MathUtils.clamp(
-                Math.atan2(rollDiff, trackWidth),
-                -0.28,
-                0.28
-            );
-
-            cart.targetPitch = targetPitch;
-            cart.targetRoll = targetRoll;
-
-            // Smooth damping
-            cart.pitch += (targetPitch - cart.pitch) * (1 - Math.exp(-14 * dt));
             cart.roll += (targetRoll - cart.roll) * (1 - Math.exp(-12 * dt));
 
-            // Apply full 3D orientation (YXZ: yaw then pitch then roll)
-            cart.pivotGroup.rotation.set(cart.pitch, cart.yaw, cart.roll);
+            // Lean left and normal vectors with transverse roll
+            if (Math.abs(cart.roll) > 0.001) {
+                this._tmpLeft.applyAxisAngle(this._tmpForward, cart.roll);
+            }
+            this._tmpSlopeNormal.crossVectors(this._tmpForward, this._tmpLeft).normalize();
+
+            // Set final 3D transform for this cart in moon.group coordinates
+            this._tmpBasisMat.makeBasis(this._tmpLeft, this._tmpSlopeNormal, this._tmpForward);
+            cart.pivotGroup.position.copy(cart.hitchPos);
+            cart.pivotGroup.quaternion.setFromRotationMatrix(this._tmpBasisMat);
+            cart.pivotGroup.scale.setScalar(invMoonScale);
             cart.pivotGroup.updateMatrixWorld(true);
+
+            // Rear hitch position in moon.group coordinates for the next cart
+            this._tmpCartHitch.set(0, 0.004, -0.098);
+            cart.pivotGroup.localToWorld(this._tmpCartHitch);
+            this.moon.group.worldToLocal(this._tmpCartHitch);
+            this._tmpHitchPoint.copy(this._tmpCartHitch);
         }
     }
 }

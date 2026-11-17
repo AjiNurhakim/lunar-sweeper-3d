@@ -8,16 +8,16 @@ export interface SpacePresetInfo {
 }
 
 export const SPACE_PRESETS: SpacePresetInfo[] = [
-    { id: 'void', name: '🌌 Deep Space Voyager', description: 'Angkasa malam dalam dengan bintang berlian & planet berbatu' },
-    { id: 'nebula', name: '💜 Violet Dream Nebula', description: 'Awan gas kosmik volumetrik ungu, magenta & cyan' },
-    { id: 'sunset', name: '🌅 Solar Horizon', description: 'Matahari raksasa keemasan dengan korona cahaya atmosfer' },
-    { id: 'emerald', name: '🪐 Emerald Titan', description: 'Planet raksasa cincin zamrud dengan kabut kosmik toska' },
-    { id: 'aurora', name: '✨ Aurora Borealis', description: 'Pita tirai cahaya kutub hijau neon, toska & lavender' },
-    { id: 'comet', name: '☄️ Glacial Comet', description: 'Komet es bercahaya dengan ekor debu & planet biru es' },
-    { id: 'supernova', name: '🔴 Crimson Supernova', description: 'Sisa ledakan bintang merah marun & cincin gelombang kejut' },
-    { id: 'blackhole', name: '🕳️ Gargantua Black Hole', description: 'Lubang hitam dengan piringan akresi cahaya emas berputar' },
-    { id: 'asteroid', name: '🪨 Asteroid Belt', description: 'Sabuk batuan angkasa melayang dalam orbit melengkung' },
-    { id: 'synthwave', name: '🌆 Neon Synthwave', description: 'Matahari garis retro dengan sistem bintang biner pink-biru' }
+    { id: 'void', name: 'Deep Space Voyager', description: 'Angkasa malam dalam dengan bintang berlian & planet berbatu' },
+    { id: 'nebula', name: 'Violet Dream Nebula', description: 'Awan gas kosmik volumetrik ungu, magenta & cyan' },
+    { id: 'sunset', name: 'Solar Horizon', description: 'Matahari raksasa keemasan dengan korona cahaya atmosfer' },
+    { id: 'emerald', name: 'Emerald Titan', description: 'Planet raksasa cincin zamrud dengan kabut kosmik toska' },
+    { id: 'aurora', name: 'Aurora Borealis', description: 'Pita tirai cahaya kutub hijau neon, toska & lavender' },
+    { id: 'comet', name: 'Glacial Comet', description: 'Komet es bercahaya dengan ekor debu & planet biru es' },
+    { id: 'supernova', name: 'Crimson Supernova', description: 'Sisa ledakan bintang merah marun & cincin gelombang kejut' },
+    { id: 'blackhole', name: 'Gargantua Black Hole', description: 'Lubang hitam dengan piringan akresi cahaya emas berputar' },
+    { id: 'asteroid', name: 'Asteroid Belt', description: 'Sabuk batuan angkasa melayang dalam orbit melengkung' },
+    { id: 'synthwave', name: 'Neon Synthwave', description: 'Matahari garis retro dengan sistem bintang biner pink-biru' }
 ];
 
 export class Scenery {

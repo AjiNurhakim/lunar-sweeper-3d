@@ -373,7 +373,7 @@ export class HUD {
             this.sound.playUpgrade();
             if (this.valDebugTankFill) this.valDebugTankFill.textContent = '100%';
             if (this.inpDebugTankFill) this.inpDebugTankFill.value = '100';
-            this.showToast('⚡ Tangki diisi penuh (100%)');
+            this.showToast('Tangki diisi penuh (100%)');
         });
 
         this.btnFill50?.addEventListener('click', () => {
@@ -381,7 +381,7 @@ export class HUD {
             this.sound.playCoin();
             if (this.valDebugTankFill) this.valDebugTankFill.textContent = '50%';
             if (this.inpDebugTankFill) this.inpDebugTankFill.value = '50';
-            this.showToast('✨ Tangki diisi separuh (50%)');
+            this.showToast('Tangki diisi separuh (50%)');
         });
 
         this.btnFill0?.addEventListener('click', () => {
@@ -389,7 +389,7 @@ export class HUD {
             this.sound.playDepositWhoosh();
             if (this.valDebugTankFill) this.valDebugTankFill.textContent = '0%';
             if (this.inpDebugTankFill) this.inpDebugTankFill.value = '0';
-            this.showToast('🗑️ Tangki dikosongkan (0%)');
+            this.showToast('Tangki dikosongkan (0%)');
         });
 
         this.inpDebugTankFill?.addEventListener('mousedown', () => {
@@ -420,7 +420,7 @@ export class HUD {
             ConfigManager.saveToStorage();
             this.rover.applyConfig();
             if (this.valCartCount) this.valCartCount.textContent = `${val} Cart${val > 1 ? 's' : ''}`;
-            this.showToast(`🚚 Jumlah cart trailer: ${val}`);
+            this.showToast(`Jumlah cart trailer: ${val}`);
             this.updateJsonPreview();
         });
 
@@ -528,7 +528,7 @@ export class HUD {
                 ConfigManager.current.camDistance = 2.50;
                 ConfigManager.current.camSmoothPos = 6.0;
                 ConfigManager.current.camSmoothLook = 7.5;
-                this.showToast('🛋️ Mode Anti-Pusing Aktif: Sudut Nyaman & Bebas Goncangan');
+                this.showToast('Mode Anti-Pusing Aktif: Sudut Nyaman & Bebas Goncangan');
             } else {
                 // Legacy dynamic chase
                 ConfigManager.current.camHeight = 0.40;
@@ -537,7 +537,7 @@ export class HUD {
                 ConfigManager.current.camDistance = 2.40;
                 ConfigManager.current.camSmoothPos = 12.0;
                 ConfigManager.current.camSmoothLook = 18.0;
-                this.showToast('🚀 Mode Dinamis Lama Aktif');
+                this.showToast('Mode Dinamis Lama Aktif');
             }
 
             ConfigManager.saveToStorage();
@@ -580,7 +580,7 @@ export class HUD {
             ConfigManager.current.soundEnabled = enabled;
             ConfigManager.saveToStorage();
             if (this.iconSoundEl) {
-                this.iconSoundEl.textContent = enabled ? '🔊 Suara: On' : '🔇 Suara: Off';
+                this.iconSoundEl.textContent = enabled ? 'Suara: On' : 'Suara: Off';
             }
             this.showToast(enabled ? 'Suara Diaktifkan' : 'Suara Dimatikan');
             this.updateJsonPreview();
@@ -590,7 +590,7 @@ export class HUD {
         document.getElementById('btn-copy-json')?.addEventListener('click', () => {
             const payload = ConfigManager.exportJSON();
             navigator.clipboard.writeText(payload).then(() => {
-                this.showToast('📋 JSON berhasil disalin ke clipboard!');
+                this.showToast('JSON berhasil disalin ke clipboard!');
             }).catch(() => {
                 this.showToast('Gagal menyalin, periksa izin browser.');
             });
@@ -607,7 +607,7 @@ export class HUD {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            this.showToast('💾 Berkas settings .json diunduh!');
+            this.showToast('Berkas settings .json diunduh!');
         });
 
         document.getElementById('btn-reset-default')?.addEventListener('click', () => {
@@ -616,7 +616,7 @@ export class HUD {
             this.rover.applyConfig();
             this.cameraCtrl.applyConfig();
             this.moon.applyShaderConfig();
-            this.showToast('🔄 Pengaturan dikembalikan ke bawaan!');
+            this.showToast('Pengaturan dikembalikan ke bawaan!');
         });
 
         document.getElementById('btn-apply-pasted-json')?.addEventListener('click', () => {
@@ -627,9 +627,9 @@ export class HUD {
                 this.rover.applyConfig();
                 this.cameraCtrl.applyConfig();
                 this.moon.applyShaderConfig();
-                this.showToast('✅ Pengaturan JSON berhasil diterapkan!');
+                this.showToast('Pengaturan JSON berhasil diterapkan!');
             } else {
-                this.showToast('❌ Format JSON tidak valid!');
+                this.showToast('Format JSON tidak valid!');
             }
         });
 
@@ -729,10 +729,10 @@ export class HUD {
         // Buttons state
         if (this.btnToggleComfort) {
             if (cfg.comfortMode) {
-                this.btnToggleComfort.textContent = '🛋️ Mode Anti-Pusing: Aktif';
+                this.btnToggleComfort.textContent = 'Mode Anti-Pusing: Aktif';
                 this.btnToggleComfort.className = 'btn btn-toggle-cyan w-full mb-1 py-2 text-xs font-bold tracking-wide';
             } else {
-                this.btnToggleComfort.textContent = '🚀 Mode Dinamis (Lama): Aktif';
+                this.btnToggleComfort.textContent = 'Mode Dinamis (Lama): Aktif';
                 this.btnToggleComfort.className = 'btn btn-dark w-full mb-1 py-2 text-xs font-bold tracking-wide';
             }
         }
@@ -745,7 +745,7 @@ export class HUD {
             this.btnToggleCam.className = cfg.followCamera ? 'btn btn-toggle-cyan' : 'btn btn-toggle-inactive';
         }
         if (this.iconSoundEl) {
-            this.iconSoundEl.textContent = cfg.soundEnabled ? '🔊 Suara: On' : '🔇 Suara: Off';
+            this.iconSoundEl.textContent = cfg.soundEnabled ? 'Suara: On' : 'Suara: Off';
         }
 
         if (this.moonBadgeEl) {
@@ -765,7 +765,7 @@ export class HUD {
         if (this.rover.stats.currentDust > 0) {
             this.rover.stats.currentDust = 0;
             this.sound.playDepositWhoosh();
-            this.showToast('🗑️ Tangki vakum dikosongkan.');
+            this.showToast('Tangki vakum dikosongkan.');
         } else {
             this.showToast('Tangki sudah kosong.');
         }

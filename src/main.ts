@@ -167,7 +167,7 @@ class Game {
             this.rover.stats.currentDust = Math.max(0, this.rover.stats.currentDust - depositRate);
             if (prevDust > 0 && this.rover.stats.currentDust === 0) {
                 this.sound.playDepositWhoosh();
-                this.hud.showToast('🚀 Debu disetor ke Roket! Tangki kini kosong.');
+                this.hud.showToast('Debu disetor ke Roket! Tangki kini kosong.');
             }
         }
 
