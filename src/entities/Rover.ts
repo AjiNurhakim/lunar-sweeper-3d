@@ -1085,52 +1085,61 @@ export class Rover {
             const cart = this.trailerCarts[i];
             if (!cart.pivotGroup) continue;
 
+            // 1. Set nominal orientation (with yaw, but unpitched and unrolled) to sample ground accurately
+            cart.pivotGroup.rotation.order = 'YXZ';
+            cart.pivotGroup.rotation.set(0, cart.yaw, 0);
             cart.pivotGroup.updateMatrixWorld(true);
 
+            // 2. Sample nominal axle position in moon local coordinate space
             // Wheel axle center point in cart local space: (0, 0, -0.052)
             this._tmpCartCenter.set(0, 0, -0.052);
             cart.pivotGroup.localToWorld(this._tmpCartCenter);
+            this.moon.group.worldToLocal(this._tmpCartCenter);
 
             // Left wheel: (-0.049, 0, -0.052)
             this._tmpCartLeft.set(-0.049, 0, -0.052);
             cart.pivotGroup.localToWorld(this._tmpCartLeft);
+            this.moon.group.worldToLocal(this._tmpCartLeft);
 
             // Right wheel: (0.049, 0, -0.052)
             this._tmpCartRight.set(0.049, 0, -0.052);
             cart.pivotGroup.localToWorld(this._tmpCartRight);
+            this.moon.group.worldToLocal(this._tmpCartRight);
 
-            // Sample actual terrain height beneath cart's wheels
-            const dirCenter = this._tmpCartCenter.clone().normalize();
+            // 3. Sample actual terrain height beneath cart's wheels
+            const dirCenter = this._tmpSlopeNormal.copy(this._tmpCartCenter).normalize();
             const groundRadiusCenter = this.moon.sampleActualSurfaceRadiusAt(dirCenter.x, dirCenter.y, dirCenter.z);
 
-            const dirLeft = this._tmpCartLeft.clone().normalize();
+            const dirLeft = this._tmpLeft.copy(this._tmpCartLeft).normalize();
             const groundRadiusLeft = this.moon.sampleActualSurfaceRadiusAt(dirLeft.x, dirLeft.y, dirLeft.z);
 
-            const dirRight = this._tmpCartRight.clone().normalize();
+            const dirRight = this._tmpForward.copy(this._tmpCartRight).normalize();
             const groundRadiusRight = this.moon.sampleActualSurfaceRadiusAt(dirRight.x, dirRight.y, dirRight.z);
 
-            // Normal expected wheel clearance in world space (sitting on surface)
-            const desiredAxleAltitude = 0.005 * invMoonScale;
+            // Expected wheel axle altitude above moon surface (tire radius = 0.018 scaled to moon space)
+            const desiredAxleAltitude = 0.018 * invMoonScale;
             const currentAxleAltitude = this._tmpCartCenter.length() - groundRadiusCenter;
 
             // If currentAxleAltitude > desiredAxleAltitude, cart is floating above ground!
+            // In Three.js with cart extending backward (-Z), negative pitch (-X rotation) tilts wheels DOWN.
             const altitudeDiff = currentAxleAltitude - desiredAxleAltitude;
             const wheelBase = 0.052 * invMoonScale;
 
-            // Pitch tilts down (+) into craters and tilts up (-) over bumps/ridges
+            // Pitch tilts down into craters (-) and tilts up over bumps/ridges (+)
+            // Strictly clamp to prevent extreme bending or runaway scorpion tail curls
             const targetPitch = THREE.MathUtils.clamp(
-                Math.atan2(altitudeDiff, wheelBase),
-                -0.65,
-                0.65
+                -Math.atan2(altitudeDiff, wheelBase),
+                -0.35,
+                0.35
             );
 
-            // Roll leans with left/right crater wall slope
+            // Roll leans with transverse crater slope
             const rollDiff = groundRadiusLeft - groundRadiusRight;
             const trackWidth = (2 * 0.049) * invMoonScale;
             const targetRoll = THREE.MathUtils.clamp(
                 Math.atan2(rollDiff, trackWidth),
-                -0.45,
-                0.45
+                -0.28,
+                0.28
             );
 
             cart.targetPitch = targetPitch;
@@ -1140,11 +1149,9 @@ export class Rover {
             cart.pitch += (targetPitch - cart.pitch) * (1 - Math.exp(-14 * dt));
             cart.roll += (targetRoll - cart.roll) * (1 - Math.exp(-12 * dt));
 
-            // Apply 3D orientation (Y = steering yaw, X = ground pitch, Z = slope roll)
-            cart.pivotGroup.rotation.order = 'YXZ';
-            cart.pivotGroup.rotation.y = cart.yaw;
-            cart.pivotGroup.rotation.x = cart.pitch;
-            cart.pivotGroup.rotation.z = cart.roll;
+            // Apply full 3D orientation (YXZ: yaw then pitch then roll)
+            cart.pivotGroup.rotation.set(cart.pitch, cart.yaw, cart.roll);
+            cart.pivotGroup.updateMatrixWorld(true);
         }
     }
 }
