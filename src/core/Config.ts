@@ -41,6 +41,7 @@ export interface GameConfig {
     tankScale: number;
     tankLength: number;
     cartCount: number;
+    cartSpacing: number;
 }
 
 // User-chosen default settings from test tuning
@@ -86,7 +87,8 @@ export const DEFAULT_CONFIG: GameConfig = {
     tankColorStyle: 'palette',
     tankScale: 1.00,
     tankLength: 1.00,
-    cartCount: 1
+    cartCount: 1,
+    cartSpacing: 1.00
 };
 
 export class ConfigManager {

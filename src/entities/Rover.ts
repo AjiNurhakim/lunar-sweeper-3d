@@ -34,6 +34,7 @@ export interface TrailerCart {
     hitchPos: THREE.Vector3;
     forward: THREE.Vector3;
     up: THREE.Vector3;
+    tongueMesh: THREE.Mesh;
 }
 
 export class Rover {
@@ -601,7 +602,8 @@ export class Rover {
             axlePos: new THREE.Vector3(),
             hitchPos: new THREE.Vector3(),
             forward: new THREE.Vector3(0, 0, 1),
-            up: new THREE.Vector3(0, 1, 0)
+            up: new THREE.Vector3(0, 1, 0),
+            tongueMesh: tongue
         };
     }
 
@@ -631,7 +633,8 @@ export class Rover {
 
     public initCartPositions(): void {
         const invMoonScale = 1.0 / Math.max(0.1, this.moon.moonScale);
-        const axleDist = 0.052 * invMoonScale;
+        const spacing = THREE.MathUtils.clamp(ConfigManager.current.cartSpacing || 1.0, 0.6, 2.5);
+        const axleDist = (0.052 * spacing) * invMoonScale;
         const rearDist = 0.046 * invMoonScale;
 
         // Rover rear hitch in moon.group coordinates
@@ -663,6 +666,12 @@ export class Rover {
             cart.pivotGroup.position.copy(cart.hitchPos);
             cart.pivotGroup.quaternion.setFromRotationMatrix(this._tmpBasisMat);
             cart.pivotGroup.scale.setScalar(invMoonScale);
+
+            if (cart.tongueMesh) {
+                cart.tongueMesh.scale.z = spacing;
+                cart.tongueMesh.position.z = -0.012 * spacing;
+            }
+
             cart.pivotGroup.updateMatrixWorld(true);
 
             // Compute next hitch ball position
@@ -995,17 +1004,17 @@ export class Rover {
                 cart.topGaugeMats[0].color.set(fill >= 0.15 ? '#38BDF8' : '#1E293B');
                 cart.topGaugeMats[1].color.set(fill >= 0.40 ? '#38BDF8' : '#1E293B');
                 cart.topGaugeMats[2].color.set(fill >= 0.65 ? '#38BDF8' : '#1E293B');
-                if (fill >= 0.90) {
-                    const isOverallFull = currentDust >= this.stats.tankCapacity * 0.98;
-                    if (isOverallFull) {
-                        const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.012);
-                        cart.topGaugeMats[3].color.set(pulse > 0.4 ? '#FACC15' : '#EF4444');
-                        cart.topGaugeMats[0].color.set('#38BDF8');
-                        cart.topGaugeMats[1].color.set('#38BDF8');
-                        cart.topGaugeMats[2].color.set('#38BDF8');
-                    } else {
-                        cart.topGaugeMats[3].color.set('#38BDF8');
-                    }
+
+                // Trigger full indicator per individual cart!
+                const isThisCartFull = fill >= 0.92 || (cartCap > 0 && cartDust >= cartCap * 0.98);
+                if (isThisCartFull) {
+                    const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.012 + i * 1.5);
+                    cart.topGaugeMats[3].color.set(pulse > 0.4 ? '#FACC15' : '#EF4444');
+                    cart.topGaugeMats[0].color.set('#38BDF8');
+                    cart.topGaugeMats[1].color.set('#38BDF8');
+                    cart.topGaugeMats[2].color.set('#38BDF8');
+                } else if (fill >= 0.90) {
+                    cart.topGaugeMats[3].color.set('#38BDF8');
                 } else {
                     cart.topGaugeMats[3].color.set('#1E293B');
                 }
@@ -1016,11 +1025,13 @@ export class Rover {
                 const fill = cart.visualFill;
                 cart.cartLedMats[0].color.set(fill > 0.05 ? '#38BDF8' : '#1E293B');
                 cart.cartLedMats[1].color.set(fill > 0.50 ? '#38BDF8' : '#1E293B');
-                const isOverallFull = currentDust >= this.stats.tankCapacity * 0.98;
-                if (fill >= 0.98 && isOverallFull) {
-                    const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.012);
+
+                // Trigger full indicator per individual cart!
+                const isThisCartFull = fill >= 0.94 || (cartCap > 0 && cartDust >= cartCap * 0.98);
+                if (isThisCartFull) {
+                    const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.012 + i * 1.5);
                     cart.cartLedMats[2].color.set(pulse > 0.4 ? '#FACC15' : '#EF4444');
-                } else if (fill >= 0.95) {
+                } else if (fill >= 0.85) {
                     cart.cartLedMats[2].color.set('#38BDF8');
                 } else {
                     cart.cartLedMats[2].color.set('#1E293B');
@@ -1114,13 +1125,16 @@ export class Rover {
         // -------------------------------------------------------------
         this.group.updateMatrixWorld(true);
 
-        const axleDist = 0.052 * invMoonScale;
+        const spacing = THREE.MathUtils.clamp(ConfigManager.current.cartSpacing || 1.0, 0.6, 2.5);
+        const axleDist = (0.052 * spacing) * invMoonScale;
 
         // 1. Rover rear hitch in moon.group coordinates
         this._tmpCartHitch.set(0, 0.022, -0.065);
         this.visualBodyGroup.localToWorld(this._tmpCartHitch);
         this.moon.group.worldToLocal(this._tmpCartHitch);
         this._tmpHitchPoint.copy(this._tmpCartHitch);
+
+        let parentForward = this.forward;
 
         for (let i = 0; i < this.trailerCarts.length; i++) {
             const cart = this.trailerCarts[i];
@@ -1135,6 +1149,24 @@ export class Rover {
                 this._tmpForward.multiplyScalar(1.0 / currentDist);
             } else {
                 this._tmpForward.copy(cart.forward);
+            }
+
+            // JACKKNIFE ANGULAR CONSTRAINT:
+            // Prevents trailer from folding backwards (> 66 deg) through the towing vehicle when spinning in place
+            const parentUp = this._tmpCartCenter.copy(cart.hitchPos).normalize();
+            const parentLeft = this._tmpCartLeft.crossVectors(parentUp, parentForward).normalize();
+
+            const dotFwd = this._tmpForward.dot(parentForward);
+            const dotLeft = this._tmpForward.dot(parentLeft);
+            const relAngle = Math.atan2(dotLeft, dotFwd);
+            const maxArticAngle = 1.15; // ~66 degrees maximum hitch articulation
+
+            if (Math.abs(relAngle) > maxArticAngle) {
+                const clampedAngle = THREE.MathUtils.clamp(relAngle, -maxArticAngle, maxArticAngle);
+                this._tmpForward.copy(parentForward)
+                    .multiplyScalar(Math.cos(clampedAngle))
+                    .addScaledVector(parentLeft, Math.sin(clampedAngle))
+                    .normalize();
             }
 
             // Pull axle towards hitch maintaining rigid drawbar distance
@@ -1182,6 +1214,13 @@ export class Rover {
             cart.pivotGroup.position.copy(cart.hitchPos);
             cart.pivotGroup.quaternion.setFromRotationMatrix(this._tmpBasisMat);
             cart.pivotGroup.scale.setScalar(invMoonScale);
+
+            // Scale hitch tongue length to match cart spacing
+            if (cart.tongueMesh) {
+                cart.tongueMesh.scale.z = spacing;
+                cart.tongueMesh.position.z = -0.012 * spacing;
+            }
+
             cart.pivotGroup.updateMatrixWorld(true);
 
             // Rear hitch position in moon.group coordinates for the next cart
@@ -1189,6 +1228,9 @@ export class Rover {
             cart.pivotGroup.localToWorld(this._tmpCartHitch);
             this.moon.group.worldToLocal(this._tmpCartHitch);
             this._tmpHitchPoint.copy(this._tmpCartHitch);
+
+            // Parent forward for the next cart in the chain
+            parentForward = cart.forward;
         }
     }
 }

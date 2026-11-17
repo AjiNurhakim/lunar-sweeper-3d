@@ -74,6 +74,8 @@ export class HUD {
     private valDebugTankFill = document.getElementById('val-debug-tank-fill');
     private inpCartCount = document.getElementById('inp-cart-count') as HTMLInputElement | null;
     private valCartCount = document.getElementById('val-cart-count');
+    private inpCartSpacing = document.getElementById('inp-cart-spacing') as HTMLInputElement | null;
+    private valCartSpacing = document.getElementById('val-cart-spacing');
     private inpTankScale = document.getElementById('inp-tank-scale') as HTMLInputElement | null;
     private valTankScale = document.getElementById('val-tank-scale');
     private inpTankLength = document.getElementById('inp-tank-length') as HTMLInputElement | null;
@@ -424,6 +426,15 @@ export class HUD {
             this.updateJsonPreview();
         });
 
+        this.inpCartSpacing?.addEventListener('input', (e) => {
+            const val = parseFloat((e.target as HTMLInputElement).value);
+            ConfigManager.current.cartSpacing = val;
+            ConfigManager.saveToStorage();
+            this.rover.applyConfig();
+            if (this.valCartSpacing) this.valCartSpacing.textContent = `${val.toFixed(2)}x`;
+            this.updateJsonPreview();
+        });
+
         this.inpTankScale?.addEventListener('input', (e) => {
             const val = parseFloat((e.target as HTMLInputElement).value);
             ConfigManager.current.tankScale = val;
@@ -701,6 +712,8 @@ export class HUD {
             const count = cfg.cartCount || 1;
             this.valCartCount.textContent = `${count} Cart${count > 1 ? 's' : ''}`;
         }
+        if (this.inpCartSpacing) this.inpCartSpacing.value = (cfg.cartSpacing || 1.0).toString();
+        if (this.valCartSpacing) this.valCartSpacing.textContent = `${(cfg.cartSpacing || 1.0).toFixed(2)}x`;
         if (this.inpTankScale) this.inpTankScale.value = (cfg.tankScale || 1.0).toString();
         if (this.valTankScale) this.valTankScale.textContent = `${(cfg.tankScale || 1.0).toFixed(2)}x`;
         if (this.inpTankLength) this.inpTankLength.value = (cfg.tankLength || 1.0).toString();
