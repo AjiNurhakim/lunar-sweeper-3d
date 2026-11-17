@@ -198,9 +198,17 @@
                         <input id="inp-cam-smooth" type="range" min="3.0" max="18.0" step="1.0" value="8.0" class="flat-slider">
                     </div>
 
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Waktu Idle Orbit Bulan</span>
+                            <span id="val-cam-idle" class="tuning-val">25s</span>
+                        </div>
+                        <input id="inp-cam-idle" type="range" min="3" max="60" step="1" value="25" class="flat-slider">
+                    </div>
+
                     <div class="tuning-grid-2 pt-1">
-                        <button id="btn-toggle-cam" class="btn btn-toggle-cyan">
-                            Kamera: Ikuti
+                        <button id="btn-test-idle-cam" class="btn btn-toggle-cyan" title="Uji Orbit Mengelilingi Bulan">
+                            Uji Orbit Bulan
                         </button>
                         <button id="btn-reset-cam" class="btn btn-dark">
                             Reset Sudut

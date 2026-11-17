@@ -925,6 +925,10 @@ export class Rover {
         this.stats.currentDust = Math.min(this.stats.tankCapacity, this.stats.currentDust + amount);
     }
 
+    public isTankFull(): boolean {
+        return this.stats.currentDust >= (this.stats.tankCapacity - 0.001);
+    }
+
     public setDust(amount: number): void {
         this.stats.currentDust = THREE.MathUtils.clamp(amount, 0, this.stats.tankCapacity);
     }

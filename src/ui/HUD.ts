@@ -54,6 +54,9 @@ export class HUD {
     private valCamFov = document.getElementById('val-cam-fov');
     private inpCamSmooth = document.getElementById('inp-cam-smooth') as HTMLInputElement | null;
     private valCamSmooth = document.getElementById('val-cam-smooth');
+    private inpCamIdle = document.getElementById('inp-cam-idle') as HTMLInputElement | null;
+    private valCamIdle = document.getElementById('val-cam-idle');
+    private btnTestIdleCam = document.getElementById('btn-test-idle-cam');
 
     // Moon sliders
     private inpMoonScale = document.getElementById('inp-moon-scale') as HTMLInputElement | null;
@@ -306,6 +309,19 @@ export class HUD {
             ConfigManager.saveToStorage();
             if (this.valCamSmooth) this.valCamSmooth.textContent = val.toFixed(1);
             this.updateJsonPreview();
+        });
+
+        this.inpCamIdle?.addEventListener('input', (e) => {
+            const val = parseFloat((e.target as HTMLInputElement).value);
+            ConfigManager.current.camIdleSeconds = val;
+            ConfigManager.saveToStorage();
+            if (this.valCamIdle) this.valCamIdle.textContent = `${Math.round(val)}s`;
+            this.updateJsonPreview();
+        });
+
+        this.btnTestIdleCam?.addEventListener('click', () => {
+            this.cameraCtrl.triggerIdleCinematic();
+            this.showToast('Orbit Bulan Dimulai');
         });
 
         // 3. Moon Sliders
@@ -691,6 +707,9 @@ export class HUD {
         if (this.valCamFov) this.valCamFov.textContent = `${Math.round(cfg.camFov)}°`;
         if (this.inpCamSmooth) this.inpCamSmooth.value = cfg.camSmoothPos.toString();
         if (this.valCamSmooth) this.valCamSmooth.textContent = cfg.camSmoothPos.toFixed(1);
+        const idleSec = cfg.camIdleSeconds !== undefined ? cfg.camIdleSeconds : 25;
+        if (this.inpCamIdle) this.inpCamIdle.value = idleSec.toString();
+        if (this.valCamIdle) this.valCamIdle.textContent = `${Math.round(idleSec)}s`;
 
         // Moon
         if (this.inpMoonScale) this.inpMoonScale.value = cfg.moonScale.toString();

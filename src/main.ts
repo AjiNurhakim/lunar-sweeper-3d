@@ -85,9 +85,12 @@ class Game {
         // 6. UI HUD
         this.hud = new HUD(this.moon, this.rover, this.sweeperSystem, this.sound, this.cameraCtrl);
 
-        // Connect Sweeper Audio Callback
+        // Connect Sweeper Audio & Warning Callbacks
         this.sweeperSystem.onDirtSwept = (tier) => {
             this.sound.playBrush(tier);
+        };
+        this.sweeperSystem.onTankFullBlocked = () => {
+            this.hud.showToast('Tangki Penuh! Buang debu (E) atau setor ke roket.');
         };
 
         // Random Moon handler

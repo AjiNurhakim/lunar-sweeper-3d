@@ -20,6 +20,9 @@ export interface GameConfig {
     followCamera: boolean;
     comfortMode: boolean;
     lazyFollow: boolean;
+    camAutoRealign: boolean;
+    camIdleCinematic: boolean;
+    camIdleSeconds: number;
 
     // 3. Moon & Shaders
     moonScale: number;
@@ -67,6 +70,9 @@ export const DEFAULT_CONFIG: GameConfig = {
     followCamera: true,
     comfortMode: true,
     lazyFollow: true,
+    camAutoRealign: true,
+    camIdleCinematic: true,
+    camIdleSeconds: 25.0,
 
     // Moon & Shaders
     moonScale: 1.00,

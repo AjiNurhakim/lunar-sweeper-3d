@@ -23,6 +23,14 @@ export class CameraController {
     private pinchStartDist = 0;
     private pinchStartRadius = 3.15;
 
+    // Idle & Cinematic Moon Orbit
+    public idleTimer = 0;
+    public cinematicBlend = 0;
+    public cinematicOrbitAngle = 0;
+    private _cinematicCamPos = new THREE.Vector3();
+    private _cinematicLookAt = new THREE.Vector3();
+    private _cinematicCamUp = new THREE.Vector3(0, 1, 0);
+
     public smoothCamPos = new THREE.Vector3(0, 1.2, 3.2);
     public smoothLookAt = new THREE.Vector3(0, 0.3, 0.9);
     public smoothCamUp = new THREE.Vector3(0, 1, 0);
@@ -33,6 +41,7 @@ export class CameraController {
 
     private _desiredCamPos = new THREE.Vector3();
     private _desiredLookAt = new THREE.Vector3();
+    private _desiredCamUp = new THREE.Vector3(0, 1, 0);
     private _camBackDir = new THREE.Vector3();
 
     constructor(camera: THREE.PerspectiveCamera, rover: Rover, domElement: HTMLElement) {
@@ -65,17 +74,32 @@ export class CameraController {
         this.freePhi = Math.PI / 2 - 0.2;
         this.smoothBackDir.copy(this.rover.forward).negate().normalize();
         this.smoothSurfaceR = this.rover.moon.moonScale;
+        this.idleTimer = 0;
+        this.cinematicBlend = 0;
+        this.cinematicOrbitAngle = 0;
+    }
+
+    public resetIdle(): void {
+        this.idleTimer = 0;
+    }
+
+    public triggerIdleCinematic(): void {
+        const cfg = ConfigManager.current;
+        const threshold = cfg.camIdleSeconds !== undefined ? cfg.camIdleSeconds : 25.0;
+        this.idleTimer = threshold + 0.1;
     }
 
     private setupListeners(): void {
         this.domElement.addEventListener('mousedown', (e) => {
             this.isDragging = true;
+            this.resetIdle();
             this.prevX = e.clientX;
             this.prevY = e.clientY;
         });
 
         window.addEventListener('mousemove', (e) => {
             if (!this.isDragging) return;
+            this.resetIdle();
             const dx = e.clientX - this.prevX;
             const dy = e.clientY - this.prevY;
             this.prevX = e.clientX;
@@ -96,11 +120,13 @@ export class CameraController {
 
         this.domElement.addEventListener('wheel', (e) => {
             e.preventDefault();
+            this.resetIdle();
             const zoomStep = e.deltaY * 0.0022;
             this.targetRadius = clamp(this.targetRadius + zoomStep, 1.2, 12.0);
         }, { passive: false });
 
         this.domElement.addEventListener('touchstart', (e) => {
+            this.resetIdle();
             if (e.touches.length === 1) {
                 this.isDragging = true;
                 this.prevX = e.touches[0].clientX;
@@ -115,6 +141,7 @@ export class CameraController {
         }, { passive: false });
 
         this.domElement.addEventListener('touchmove', (e) => {
+            this.resetIdle();
             if (e.touches.length === 1 && this.isDragging) {
                 const dx = e.touches[0].clientX - this.prevX;
                 const dy = e.touches[0].clientY - this.prevY;
@@ -141,6 +168,10 @@ export class CameraController {
             this.isDragging = false;
             this.pinchStartDist = 0;
         });
+
+        // Key presses reset idle timer
+        window.addEventListener('keydown', () => this.resetIdle());
+        window.addEventListener('keyup', () => this.resetIdle());
     }
 
     public update(dt: number): void {
@@ -149,6 +180,61 @@ export class CameraController {
         this.radius += (this.targetRadius - this.radius) * lerpFactor;
 
         const scale = this.rover.moon.moonScale;
+        const isMoving = Math.abs(this.rover.speed) > 0.015;
+
+        // 1. Idle Detection & Tracking
+        if (isMoving || this.isDragging) {
+            this.idleTimer = 0;
+        } else {
+            this.idleTimer += dt;
+        }
+
+        // 2. Auto-Realign to Default Angle when Moving
+        if (isMoving && !this.isDragging && (cfg.camAutoRealign ?? true)) {
+            // Wrap yawOffset to [-PI, PI] to ensure shortest angular route
+            while (this.yawOffset > Math.PI) this.yawOffset -= Math.PI * 2;
+            while (this.yawOffset < -Math.PI) this.yawOffset += Math.PI * 2;
+
+            const realignRate = 2.8; // Smooth, elegant realignment
+            const realignFactor = 1 - Math.exp(-realignRate * dt);
+            this.yawOffset += (0 - this.yawOffset) * realignFactor;
+            this.pitchOffset += (cfg.camPitch - this.pitchOffset) * realignFactor;
+
+            if (Math.abs(this.yawOffset) < 0.0005) this.yawOffset = 0;
+        }
+
+        // 3. Cinematic Moon Orbit Blend
+        const idleThreshold = cfg.camIdleSeconds !== undefined ? cfg.camIdleSeconds : 25.0;
+        const isIdle = (cfg.camIdleCinematic ?? true) && this.idleTimer >= idleThreshold;
+        const targetBlend = isIdle ? 1.0 : 0.0;
+
+        // Smoothly fade in over ~3.5s, fade out responsively over ~1.2s when player moves
+        const blendRate = targetBlend > 0.5 ? 0.85 : 2.6;
+        this.cinematicBlend += (targetBlend - this.cinematicBlend) * (1 - Math.exp(-blendRate * dt));
+        if (this.cinematicBlend < 0.0001) this.cinematicBlend = 0;
+        if (this.cinematicBlend > 0.9999) this.cinematicBlend = 1;
+
+        if (this.cinematicBlend > 0.001) {
+            // Initialize orbit angle from current horizontal position to prevent angle jump
+            if (this.cinematicBlend < 0.06 && this.cinematicOrbitAngle === 0) {
+                this.cinematicOrbitAngle = Math.atan2(this.smoothCamPos.x, this.smoothCamPos.z);
+            }
+            this.cinematicOrbitAngle += dt * 0.09; // Majestic slow orbit around the moon
+
+            const cinematicDist = Math.max(3.2, scale * 3.4);
+            const incAngle = 0.38; // ~22 degrees elevation above equator for cinematic horizon
+            const cosInc = Math.cos(incAngle);
+            const sinInc = Math.sin(incAngle);
+            this._cinematicCamPos.set(
+                cinematicDist * cosInc * Math.sin(this.cinematicOrbitAngle),
+                cinematicDist * sinInc,
+                cinematicDist * cosInc * Math.cos(this.cinematicOrbitAngle)
+            );
+            this._cinematicLookAt.set(0, 0, 0); // Center of moon
+            this._cinematicCamUp.set(0, 1, 0);
+        } else {
+            this.cinematicOrbitAngle = 0;
+        }
 
         if (cfg.followCamera) {
             const u = this.rover.up;
@@ -218,15 +304,24 @@ export class CameraController {
                     .addScaledVector(f, 0.14);
             }
 
+            this._desiredCamUp.copy(u);
+
+            // Blend with Cinematic Idle Orbit if active
+            if (this.cinematicBlend > 0.001) {
+                const t = this.cinematicBlend;
+                const s = t * t * (3 - 2 * t); // Smooth Hermite curve
+                this._desiredCamPos.lerp(this._cinematicCamPos, s);
+                this._desiredLookAt.lerp(this._cinematicLookAt, s);
+                this._desiredCamUp.lerp(this._cinematicCamUp, s).normalize();
+            }
+
             const posSmoothRate = cfg.comfortMode ? Math.min(cfg.camSmoothPos, 6.5) : cfg.camSmoothPos;
             const lookSmoothRate = cfg.comfortMode ? Math.min(cfg.camSmoothLook, 8.0) : cfg.camSmoothLook;
+            const upSmoothRate = cfg.comfortMode ? 4.5 : 10.0;
 
             this.smoothCamPos.lerp(this._desiredCamPos, 1 - Math.exp(-posSmoothRate * dt));
             this.smoothLookAt.lerp(this._desiredLookAt, 1 - Math.exp(-lookSmoothRate * dt));
-
-            // Smooth Up-Vector Lerp to prevent camera flipping over poles
-            const upSmoothRate = cfg.comfortMode ? 4.5 : 10.0;
-            this.smoothCamUp.lerp(u, 1 - Math.exp(-upSmoothRate * dt)).normalize();
+            this.smoothCamUp.lerp(this._desiredCamUp, 1 - Math.exp(-upSmoothRate * dt)).normalize();
 
             this.camera.up.copy(this.smoothCamUp);
             this.camera.position.copy(this.smoothCamPos);

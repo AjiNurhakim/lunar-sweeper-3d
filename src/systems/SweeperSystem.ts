@@ -10,6 +10,8 @@ export class SweeperSystem {
 
     // Sound / Event callback hooks
     public onDirtSwept?: (tier: number, amount: number) => void;
+    public onTankFullBlocked?: () => void;
+    private lastTankFullNoticeTime = 0;
 
     constructor(moon: Moon, rover: Rover) {
         this.moon = moon;
@@ -32,6 +34,8 @@ export class SweeperSystem {
         const maxSweepRadius = Math.hypot(halfWidth, halfDepth) + 0.035 * invMoonScale;
 
         const isMoving = Math.abs(this.rover.speed) > 0.012;
+        const isTankFull = !forceSweep && this.rover.isTankFull();
+        let attemptedSweepWhileFull = false;
 
         // Query spatial grid around rover center 'u' with wide radius to cover BOTH front sweeper & all 4 wheels
         const queryRadius = Math.max(0.22 * invMoonScale, maxSweepRadius + 0.08 * invMoonScale);
@@ -74,36 +78,44 @@ export class SweeperSystem {
             if (normF <= 1.25 && normL <= 1.30) {
                 const brushDistSq = normF * normF + normL * normL;
                 if (brushDistSq <= 1.45) {
-                    const brushDist = Math.sqrt(brushDistSq);
-                    // Core 0.0 to 0.55 has 100% sweep weight; smooth cubic Hermite falloff extending to 1.20
-                    const t = Math.max(0.0, Math.min(1.0, (brushDist - 0.55) / (1.20 - 0.55)));
-                    const brushWeight = 1.0 - t * t * (3.0 - 2.0 * t);
                     const prevDirt = dirtAmounts[i];
 
-                    if (prevDirt > 0.001) {
-                        const tier = dirtTiers[i];
-                        highestTierSwept = Math.max(highestTierSwept, tier);
+                    if (isTankFull) {
+                        // Tank is full: cannot vacuum dust or erase trails
+                        if (prevDirt > 0.05 && isMoving) {
+                            attemptedSweepWhileFull = true;
+                        }
+                    } else {
+                        const brushDist = Math.sqrt(brushDistSq);
+                        // Core 0.0 to 0.55 has 100% sweep weight; smooth cubic Hermite falloff extending to 1.20
+                        const t = Math.max(0.0, Math.min(1.0, (brushDist - 0.55) / (1.20 - 0.55)));
+                        const brushWeight = 1.0 - t * t * (3.0 - 2.0 * t);
 
-                        const effectiveSweep = sweepRate * brushWeight;
-                        const nextDirt = Math.max(0.0, prevDirt - effectiveSweep);
-                        const delta = prevDirt - nextDirt;
+                        if (prevDirt > 0.001) {
+                            const tier = dirtTiers[i];
+                            highestTierSwept = Math.max(highestTierSwept, tier);
 
-                        if (delta > 0) {
-                            dirtAmounts[i] = nextDirt;
-                            this.moon.totalDirtSum = Math.max(0, this.moon.totalDirtSum - delta);
-                            sweptDirtDelta += delta;
+                            const effectiveSweep = sweepRate * brushWeight;
+                            const nextDirt = Math.max(0.0, prevDirt - effectiveSweep);
+                            const delta = prevDirt - nextDirt;
+
+                            if (delta > 0) {
+                                dirtAmounts[i] = nextDirt;
+                                this.moon.totalDirtSum = Math.max(0, this.moon.totalDirtSum - delta);
+                                sweptDirtDelta += delta;
+                                anyVertexChanged = true;
+                            }
+                        }
+
+                        // Clean old wheel trails under brush ONLY when moving forward (so reversing doesn't erase freshly stamped tracks)
+                        if (this.rover.speed > 0.01 && trailAmounts[i] > 0.001) {
+                            trailAmounts[i] = Math.max(0.0, trailAmounts[i] - sweepRate * brushWeight);
+                            if (trailAmounts[i] <= 0.005) {
+                                trailAmounts[i] = 0.0;
+                                this.moon.activeTrailIndices.delete(i);
+                            }
                             anyVertexChanged = true;
                         }
-                    }
-
-                    // Clean old wheel trails under brush ONLY when moving forward (so reversing doesn't erase freshly stamped tracks)
-                    if (this.rover.speed > 0.01 && trailAmounts[i] > 0.001) {
-                        trailAmounts[i] = Math.max(0.0, trailAmounts[i] - sweepRate * brushWeight);
-                        if (trailAmounts[i] <= 0.005) {
-                            trailAmounts[i] = 0.0;
-                            this.moon.activeTrailIndices.delete(i);
-                        }
-                        anyVertexChanged = true;
                     }
                 }
             }
@@ -171,6 +183,17 @@ export class SweeperSystem {
 
             if (this.onDirtSwept) {
                 this.onDirtSwept(highestTierSwept, sweptDirtDelta);
+            }
+        }
+
+        // Notify user if attempting to sweep while tank is full
+        if (attemptedSweepWhileFull) {
+            const now = performance.now();
+            if (now - this.lastTankFullNoticeTime > 3000) {
+                this.lastTankFullNoticeTime = now;
+                if (this.onTankFullBlocked) {
+                    this.onTankFullBlocked();
+                }
             }
         }
     }
