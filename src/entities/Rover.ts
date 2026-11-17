@@ -194,7 +194,12 @@ export class Rover {
         this.yellowBodyMat = yellowBodyMat;
         this.yellowDarkMat = yellowDarkMat;
         this.darkChassisMat = darkChassisMat;
-        this.tickMat = new THREE.MeshBasicMaterial({ color: '#BAE6FD' });
+        this.tickMat = new THREE.MeshBasicMaterial({
+            color: '#93C5FD',
+            transparent: true,
+            opacity: 0.35,
+            depthWrite: false
+        });
         this.coreRodMat = new THREE.MeshStandardMaterial({
             color: '#E2E8F0',
             roughness: 0.15,
@@ -374,54 +379,63 @@ export class Rover {
         const pivotGroup = new THREE.Group();
         this.moon.group.add(pivotGroup);
 
-        // Proportional cart chassis scaling matching the vacuum tank
-        const cartWidth = Math.max(0.084 * tankLength, 0.068 * tankLength + 0.026 * tankScale);
-        const cartDepth = 0.088 * Math.max(0.85, 0.65 + 0.35 * tankScale);
-        const chassisCenterZ = -0.008 - cartDepth * 0.5;
-        const railX = cartWidth * 0.5;
-        const wheelX = railX + 0.009 * Math.max(0.8, tankScale);
-        const bumperWidth = cartWidth + 0.008 * Math.max(0.8, tankScale);
-        const rearZ = chassisCenterZ - cartDepth * 0.5;
-        const rearHitchZ = rearZ - 0.005;
+        // Compact, neat square box chassis
+        const cartWidth = 0.054;
+        const cartDepth = 0.054;
+        const cartHeight = 0.016;
+        const chassisCenterZ = -0.046;
+        const frontZ = chassisCenterZ + cartDepth * 0.5; // -0.019
+        const rearZ = chassisCenterZ - cartDepth * 0.5;  // -0.073
+        const rearHitchZ = rearZ - 0.007;
+        const wheelX = cartWidth * 0.5 + 0.008;
 
-        // Trailer Tongue / Hitch connecting (0, 0, 0) to front edge of chassis
-        const tongueZ = (chassisCenterZ + cartDepth * 0.5) * 0.5;
-        const tongueLen = Math.max(0.016, -(chassisCenterZ + cartDepth * 0.5) + 0.004);
-        const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.009 * Math.max(0.8, tankScale), 0.008 * Math.max(0.8, tankScale), tongueLen), this.darkChassisMat);
-        tongue.position.set(0, 0, tongueZ);
+        // Trailer Drawbar / Tongue connecting hitch (0, 0, 0) to front face of compact box
+        const tongueLen = Math.abs(frontZ) + 0.002;
+        const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.006, tongueLen), this.darkChassisMat);
+        tongue.position.set(0, 0.004, frontZ * 0.5);
         pivotGroup.add(tongue);
 
-        // Cart Tray / Chassis
-        const cartChassis = new THREE.Mesh(new THREE.BoxGeometry(cartWidth, 0.012 * Math.max(0.8, tankScale), cartDepth), this.darkChassisMat);
-        cartChassis.position.set(0, 0.004, chassisCenterZ);
+        // Compact Square Box Chassis Body
+        const cartChassis = new THREE.Mesh(new THREE.BoxGeometry(cartWidth, cartHeight, cartDepth), this.darkChassisMat);
+        cartChassis.position.set(0, cartHeight * 0.5, chassisCenterZ);
         pivotGroup.add(cartChassis);
 
-        // Yellow Cart Rails & Protective Frame
-        const leftRail = new THREE.Mesh(new THREE.BoxGeometry(0.006 * Math.max(0.8, tankScale), 0.018 * tankScale, cartDepth), this.yellowBodyMat);
-        leftRail.position.set(-railX, 0.015 * tankScale, chassisCenterZ);
-        pivotGroup.add(leftRail);
+        // Top Accent Panel / Lid on the box
+        const topPlate = new THREE.Mesh(new THREE.BoxGeometry(cartWidth - 0.006, 0.002, cartDepth - 0.006), this.yellowDarkMat);
+        topPlate.position.set(0, cartHeight + 0.001, chassisCenterZ);
+        pivotGroup.add(topPlate);
 
-        const rightRail = new THREE.Mesh(new THREE.BoxGeometry(0.006 * Math.max(0.8, tankScale), 0.018 * tankScale, cartDepth), this.yellowBodyMat);
-        rightRail.position.set(railX, 0.015 * tankScale, chassisCenterZ);
-        pivotGroup.add(rightRail);
-
-        const rearBumper = new THREE.Mesh(new THREE.BoxGeometry(bumperWidth, 0.016 * tankScale, 0.007 * Math.max(0.8, tankScale)), this.yellowDarkMat);
-        rearBumper.position.set(0, 0.015 * tankScale, rearZ);
+        // Rear Bumper Bar on the back of the box
+        const rearBumper = new THREE.Mesh(new THREE.BoxGeometry(cartWidth + 0.004, 0.012, 0.005), this.yellowDarkMat);
+        rearBumper.position.set(0, 0.008, rearZ);
         pivotGroup.add(rearBumper);
 
+        // 4-Stage Rear Bumper Stardust Indicator LEDs (Placed back on the rear face)
+        const cartLedMats: THREE.MeshBasicMaterial[] = [];
+        const ledStep = 0.010;
+        const ledPositions = [-ledStep * 1.5, -ledStep * 0.5, ledStep * 0.5, ledStep * 1.5];
+        ledPositions.forEach(xOffset => {
+            const mat = new THREE.MeshBasicMaterial({ color: '#1E293B' });
+            const led = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.005, 0.003), mat);
+            led.position.set(xOffset, 0.008, rearZ - 0.002);
+            pivotGroup.add(led);
+            cartLedMats.push(mat);
+        });
+        const topGaugeMats: THREE.MeshBasicMaterial[] = cartLedMats;
+
         // Rear Hitch Mount & Ball for chaining subsequent carts
-        const rearHitchMount = new THREE.Mesh(new THREE.BoxGeometry(0.010 * Math.max(0.8, tankScale), 0.008 * Math.max(0.8, tankScale), 0.014), this.darkChassisMat);
-        rearHitchMount.position.set(0, 0.004, rearZ - 0.002);
+        const rearHitchMount = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.006, 0.008), this.darkChassisMat);
+        rearHitchMount.position.set(0, 0.004, rearZ - 0.003);
         pivotGroup.add(rearHitchMount);
 
-        const rearHitchBall = new THREE.Mesh(new THREE.SphereGeometry(0.005 * Math.max(0.8, tankScale), 8, 8), this.darkChassisMat);
+        const rearHitchBall = new THREE.Mesh(new THREE.SphereGeometry(0.0045, 8, 8), this.darkChassisMat);
         rearHitchBall.position.set(0, 0.004, rearHitchZ);
         pivotGroup.add(rearHitchBall);
 
-        // Cart Wheels (2 wheels per trailer cart - layered with zero Z-fighting)
+        // Cart Wheels (2 wheels alongside the compact box chassis)
         const cartWheelMeshes: THREE.Group[] = [];
-        const tireRadius = 0.018 * Math.max(0.85, 0.70 + 0.30 * tankScale);
-        const tireWidth = 0.013 * Math.max(0.85, 0.70 + 0.30 * tankScale);
+        const tireRadius = 0.018;
+        const tireWidth = 0.012;
         [-1, 1].forEach(side => {
             const wheelGroup = new THREE.Group();
             wheelGroup.position.set(side * wheelX, 0, chassisCenterZ);
@@ -442,7 +456,7 @@ export class Rover {
             wheelGroup.add(hub);
 
             const nut = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.0035 * Math.max(0.8, tankScale), 0.0035 * Math.max(0.8, tankScale), 0.002, 8),
+                new THREE.CylinderGeometry(0.0035, 0.0035, 0.002, 8),
                 this.darkChassisMat
             );
             nut.rotation.z = Math.PI / 2;
@@ -453,35 +467,42 @@ export class Rover {
             cartWheelMeshes.push(wheelGroup);
         });
 
-        // Top-facing 4-segment stardust gauge on cart deck
-        const bezelWidth = Math.min(cartWidth * 0.88, 0.055 * tankLength + 0.020 * tankScale);
-        const gaugeBezel = new THREE.Mesh(new THREE.BoxGeometry(bezelWidth, 0.003, 0.014 * Math.max(0.8, tankScale)), this.darkChassisMat);
-        gaugeBezel.position.set(0, 0.017 * tankScale, chassisCenterZ + cartDepth * 0.32);
-        pivotGroup.add(gaugeBezel);
+        // Elevated Horizontal Vacuum Capsule Tank Position
+        const yElevation = 0.038 + (tankScale - 1.0) * 0.018;
 
-        const topGaugeMats: THREE.MeshBasicMaterial[] = [];
-        const segStep = bezelWidth * 0.24;
-        const segPositions = [-segStep * 1.5, -segStep * 0.5, segStep * 0.5, segStep * 1.5];
-        segPositions.forEach(xOffset => {
-            const mat = new THREE.MeshBasicMaterial({ color: '#1E293B' });
-            const seg = new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.008, segStep * 0.72), 0.004 * tankScale, 0.009 * Math.max(0.8, tankScale)), mat);
-            seg.position.set(xOffset, 0.019 * tankScale, chassisCenterZ + cartDepth * 0.32);
-            pivotGroup.add(seg);
-            topGaugeMats.push(mat);
+        // Structural Support Cradles (Penyangga Tabung) rising from the compact box chassis
+        const cradleSpacing = Math.min(0.016 * tankLength, cartWidth * 0.28);
+        const riserHeight = yElevation - cartHeight;
+        [-cradleSpacing, cradleSpacing].forEach(xPos => {
+            // 1. Vertical support riser column
+            const riser = new THREE.Mesh(
+                new THREE.BoxGeometry(0.006, riserHeight, 0.020 * Math.max(0.8, tankScale)),
+                this.darkChassisMat
+            );
+            riser.position.set(xPos, cartHeight + riserHeight * 0.5, chassisCenterZ);
+            pivotGroup.add(riser);
+
+            // 2. Yellow angled reinforcement bracket
+            const brace = new THREE.Mesh(
+                new THREE.BoxGeometry(0.004, riserHeight * 0.70, 0.026 * Math.max(0.8, tankScale)),
+                this.yellowBodyMat
+            );
+            brace.position.set(xPos, cartHeight + riserHeight * 0.45, chassisCenterZ);
+            pivotGroup.add(brace);
+
+            // 3. Saddle clamp cradling the underside of the capsule
+            const saddle = new THREE.Mesh(
+                new THREE.BoxGeometry(0.007, 0.005 * tankScale, 0.040 * tankScale),
+                this.yellowDarkMat
+            );
+            saddle.position.set(xPos, yElevation - 0.010 * tankScale, chassisCenterZ);
+            pivotGroup.add(saddle);
         });
 
-        // Horizontal Transparent Vacuum Capsule Tank
+        // Horizontal Transparent Vacuum Capsule Tank Group
         const horizontalTankGroup = new THREE.Group();
-        const yElevation = 0.028 + (tankScale - 1.0) * 0.018;
         horizontalTankGroup.position.set(0, yElevation, chassisCenterZ);
         pivotGroup.add(horizontalTankGroup);
-
-        // Heavy-duty mounting cradles under the capsule (spaced by tankLength, sized by tankScale)
-        [-0.024 * tankLength, 0.024 * tankLength].forEach(xPos => {
-            const cradle = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.014 * tankScale, 0.038 * tankScale), this.darkChassisMat);
-            cradle.position.set(xPos, -0.008 * tankScale, 0);
-            horizontalTankGroup.add(cradle);
-        });
 
         // Left & Right Metallic End Caps & Collars (positioned at ends of scaled length)
         const capX = 0.034 * tankLength + 0.004 * tankScale;
@@ -528,10 +549,10 @@ export class Rover {
         coreRod.rotation.z = Math.PI / 2;
         horizontalTankGroup.add(coreRod);
 
-        // 3 Vertical Calibration Tick Rings
+        // 3 Delicate, Subtle Etched Calibration Tick Rings
         [-0.017 * tankLength, 0.0, 0.017 * tankLength].forEach(xPos => {
             const tickRing = new THREE.Mesh(
-                new THREE.TorusGeometry(0.0224 * tankScale, 0.0011 * tankScale, 8, 24),
+                new THREE.TorusGeometry(0.0222 * tankScale, 0.00030 * tankScale, 6, 24),
                 this.tickMat
             );
             tickRing.rotation.y = Math.PI / 2;
@@ -539,7 +560,7 @@ export class Rover {
             horizontalTankGroup.add(tickRing);
         });
 
-        // Radiant Luminous Stardust Fill Cylinder
+        // Radiant Luminous Stardust Fill Cylinder (Smooth & Still)
         const fillCol = new THREE.Color('#38BDF8');
         const tankFillMat = new THREE.MeshStandardMaterial({
             color: fillCol,
@@ -559,15 +580,17 @@ export class Rover {
         tankFillMesh.position.set(-0.033 * tankLength, 0, 0);
         horizontalTankGroup.add(tankFillMesh);
 
-        // Razor-Sharp Glowing Surface Floater Ring
+        // Subtle Surface Floater Ring
         const tankFloaterMat = new THREE.MeshStandardMaterial({
             color: '#FFFFFF',
             emissive: fillCol,
-            emissiveIntensity: 0.92,
-            roughness: 0.2
+            emissiveIntensity: 0.45,
+            roughness: 0.25,
+            transparent: true,
+            opacity: 0.70
         });
         const tankFloaterMesh = new THREE.Mesh(
-            new THREE.TorusGeometry(0.0205 * tankScale, 0.0018 * tankScale, 8, 20),
+            new THREE.TorusGeometry(0.0203 * tankScale, 0.00055 * tankScale, 6, 24),
             tankFloaterMat
         );
         tankFloaterMesh.rotation.y = Math.PI / 2;
@@ -575,29 +598,8 @@ export class Rover {
         tankFloaterMesh.visible = false;
         horizontalTankGroup.add(tankFloaterMesh);
 
-        // Internal Swirling Dust Particles
+        // Dust beads array kept empty so zero particles jitter or vibrate inside the vacuum
         const tankDustParticles: THREE.Mesh[] = [];
-        for (let d = 0; d < 6; d++) {
-            const bead = new THREE.Mesh(
-                new THREE.SphereGeometry(0.0035 * tankScale, 8, 8),
-                new THREE.MeshBasicMaterial({ color: d % 2 === 0 ? '#FDE047' : '#38BDF8' })
-            );
-            bead.position.set(0, 0, 0);
-            bead.visible = false;
-            horizontalTankGroup.add(bead);
-            tankDustParticles.push(bead);
-        }
-
-        // 3-Stage Dynamic LEDs on rear bumper
-        const cartLedMats: THREE.MeshBasicMaterial[] = [];
-        const ledSpacing = Math.min(0.024 * tankLength, bumperWidth * 0.24);
-        [-ledSpacing, 0.0, ledSpacing].forEach(xOffset => {
-            const mat = new THREE.MeshBasicMaterial({ color: '#1E293B' });
-            const led = new THREE.Mesh(new THREE.BoxGeometry(0.012 * Math.max(0.8, tankScale), 0.006 * Math.max(0.8, tankScale), 0.003), mat);
-            led.position.set(xOffset, 0.015 * tankScale, rearZ);
-            pivotGroup.add(led);
-            cartLedMats.push(mat);
-        });
 
         return {
             pivotGroup,
@@ -1023,60 +1025,31 @@ export class Rover {
                 }
             }
 
-            // TOP-FACING 4-SEGMENT STARDUST METER ON THE TRAILER BED (Reflects this cart's fill!)
-            if (cart.topGaugeMats.length === 4) {
+            // 4-Segment Rear Stardust Indicator (Embedded on the rear bumper of the cart)
+            if (cart.cartLedMats.length === 4) {
                 const fill = cart.visualFill;
-                cart.topGaugeMats[0].color.set(fill >= 0.15 ? '#38BDF8' : '#1E293B');
-                cart.topGaugeMats[1].color.set(fill >= 0.40 ? '#38BDF8' : '#1E293B');
-                cart.topGaugeMats[2].color.set(fill >= 0.65 ? '#38BDF8' : '#1E293B');
+                cart.cartLedMats[0].color.set(fill >= 0.15 ? '#38BDF8' : '#1E293B');
+                cart.cartLedMats[1].color.set(fill >= 0.40 ? '#38BDF8' : '#1E293B');
+                cart.cartLedMats[2].color.set(fill >= 0.65 ? '#38BDF8' : '#1E293B');
 
                 // Trigger full indicator per individual cart!
                 const isThisCartFull = fill >= 0.92 || (cartCap > 0 && cartDust >= cartCap * 0.98);
                 if (isThisCartFull) {
                     const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.012 + i * 1.5);
-                    cart.topGaugeMats[3].color.set(pulse > 0.4 ? '#FACC15' : '#EF4444');
-                    cart.topGaugeMats[0].color.set('#38BDF8');
-                    cart.topGaugeMats[1].color.set('#38BDF8');
-                    cart.topGaugeMats[2].color.set('#38BDF8');
-                } else if (fill >= 0.90) {
-                    cart.topGaugeMats[3].color.set('#38BDF8');
-                } else {
-                    cart.topGaugeMats[3].color.set('#1E293B');
-                }
-            }
-
-            // 3-Stage Dynamic LEDs on rear bumper of cart
-            if (cart.cartLedMats.length === 3) {
-                const fill = cart.visualFill;
-                cart.cartLedMats[0].color.set(fill > 0.05 ? '#38BDF8' : '#1E293B');
-                cart.cartLedMats[1].color.set(fill > 0.50 ? '#38BDF8' : '#1E293B');
-
-                // Trigger full indicator per individual cart!
-                const isThisCartFull = fill >= 0.94 || (cartCap > 0 && cartDust >= cartCap * 0.98);
-                if (isThisCartFull) {
-                    const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.012 + i * 1.5);
-                    cart.cartLedMats[2].color.set(pulse > 0.4 ? '#FACC15' : '#EF4444');
-                } else if (fill >= 0.85) {
+                    cart.cartLedMats[3].color.set(pulse > 0.4 ? '#FACC15' : '#EF4444');
+                    cart.cartLedMats[0].color.set('#38BDF8');
+                    cart.cartLedMats[1].color.set('#38BDF8');
                     cart.cartLedMats[2].color.set('#38BDF8');
+                } else if (fill >= 0.90) {
+                    cart.cartLedMats[3].color.set('#38BDF8');
                 } else {
-                    cart.cartLedMats[2].color.set('#1E293B');
+                    cart.cartLedMats[3].color.set('#1E293B');
                 }
             }
 
-            // Internal glowing dust particles: calm and completely still inside the tank (zero vibration/swirl)
+            // Stardust inside the tank is completely still and calm (zero jitter or beads)
             for (let d = 0; d < cart.tankDustParticles.length; d++) {
-                const bead = cart.tankDustParticles[d];
-                if (cart.visualFill > 0.03) {
-                    bead.visible = true;
-                    const currentLen = cart.visualFill * 0.066 * tankLength;
-                    const staticAngle = (d / cart.tankDustParticles.length) * Math.PI * 2;
-                    const staticR = 0.007 * tankScale;
-                    bead.position.x = -0.033 * tankLength + ((d + 0.5) / cart.tankDustParticles.length) * currentLen;
-                    bead.position.y = Math.sin(staticAngle) * staticR;
-                    bead.position.z = Math.cos(staticAngle) * staticR;
-                } else {
-                    bead.visible = false;
-                }
+                cart.tankDustParticles[d].visible = false;
             }
         }
 
