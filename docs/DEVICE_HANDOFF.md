@@ -1,4 +1,4 @@
-# 🚀 DEVICE HANDOFF & CONTINUATION GUIDE
+﻿#  DEVICE HANDOFF & CONTINUATION GUIDE
 ## Project: Lunar Sweeper 3D (Codename: Moon)
 **Repository:** [https://github.com/AjiNurhakim/lunar-sweeper-3d](https://github.com/AjiNurhakim/lunar-sweeper-3d)  
 **Author:** Aji Nurhakim  
@@ -7,7 +7,7 @@
 
 ---
 
-## 💻 1. Quick Setup on New Device (Windows, macOS, Linux)
+##  1. Quick Setup on New Device (Windows, macOS, Linux)
 
 ### Step 1: Clone the Repository
 ```bash
@@ -35,7 +35,7 @@ npm run preview
 
 ---
 
-## 🎯 2. Complete Context & Current Project Status
+##  2. Complete Context & Current Project Status
 
 ### What is this Game?
 A commercial-grade 3D stylized web game targeted for the **Poki Web Game Portal**.
@@ -71,7 +71,7 @@ The player pilots a cute, stylized yellow cleaning rover across the 3D spherical
    - Full real-time sliders for distance, height, pitch, FOV, and smoothness.
 
 5. **Live In-Game HUD & Tuning Panel (`HUD.ts`):**
-   - Collapsible 5-tab settings panel: `🏎️ Probe`, `🎥 Kamera`, `🌕 Bulan`, `🧪 Tangki`, `💾 JSON`.
+   - Collapsible 5-tab settings panel: `️ Probe`, ` Kamera`, ` Bulan`, ` Tangki`, ` JSON`.
    - Dedicated Tank debug controls: Quick 100%, 50%, 0% fill buttons, manual fill slider, capacity, fill rate, glass opacity, glow intensity, and 6 glowing stardust color styles.
    - One-click JSON export/download and browser `localStorage` synchronization (`lunar_sweeper_custom_config_v6`).
 
@@ -83,7 +83,7 @@ The player pilots a cute, stylized yellow cleaning rover across the 3D spherical
 
 ---
 
-## 🧭 3. Codebase File Map
+##  3. Codebase File Map
 
 | Path | Purpose |
 |---|---|
@@ -105,7 +105,7 @@ The player pilots a cute, stylized yellow cleaning rover across the 3D spherical
 
 ---
 
-## 🔮 4. Next Development Steps (When Continuing)
+##  4. Next Development Steps (When Continuing)
 
 Currently, the game is in **Visual & Game Feel Polish Mode** (uninterrupted sweeping with full live tuning panel). When you are ready to transition to the full **Poki Commercial Game Loop**:
 1. **Re-Enable the Deposit & Upgrade Loop:**

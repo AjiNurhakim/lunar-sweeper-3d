@@ -1,4 +1,4 @@
-# GAME CONTEXT & TECHNICAL ARCHITECTURE
+﻿# GAME CONTEXT & TECHNICAL ARCHITECTURE
 ## Project: Lunar Sweeper 3D
 **Path:** `c:\Users\LENOVO\OneDrive\Dokumen\Aji\Games\Codename--Moon`  
 **Target:** Poki Web Game Portal  
@@ -195,5 +195,5 @@ $$\text{Cost}(L) = \text{BaseCost} \cdot (\text{Multiplier})^{L-1}$$
 | **Nov 2026** | Anti-Motion Sickness "Comfort Mode" & Lazy Follow Spring-Arm | Eliminated dizziness caused by rapid horizon whipping during zigzag sweeping. Implemented soft deadzone lazy-follow spring-arm heading damping (rotates probe on-screen without whipping background), heavy terrain bump filtering, stabilized rover look-at anchor, cozy 3/4 top-down angle (`camHeight: 0.85`, `camPitch: 0.85`, `camFov: 54°`, `camSmoothPos: 6.0`), and 1-click toggle button in Tab Kamera. |
 | **Nov 2026** | Horizontal Transparent Vacuum Tank Trailer & 4-Segment Meter | Built articulated trailer cart attached to rover with horizontal crystal-clear glass capsule tank across the X-axis (100% visible from top-down / high-angle view). Left-to-right fill animation with razor-sharp sliding floater meniscus, calibration rings (25%, 50%, 75%), 4-segment deck gauge, and bumper LEDs. |
 | **Nov 2026** | Layered Wheel Architecture (Zero Z-Fighting) | Completely resolved wheel and velg z-fighting flickering by removing the coplanar intersecting tread box. Built clean layered chibi wheels: dark tire cylinder, outer yellow velg hubcap with positive depth offset, and raised center axle nut for both rover and trailer wheels. |
-| **Nov 2026** | Dedicated Tank Debug & Tuning Panel (Tab 🧪 Tangki) | Added 5th settings tab with quick 100%, 50%, 0% fill buttons, real-time manual fill slider, capacity, fill rate, glass opacity, glow intensity, and 6 glowing stardust color styles (Palette, Cyan, Gold, Magenta, Emerald, Amethyst). |
+| **Nov 2026** | Dedicated Tank Debug & Tuning Panel (Tab  Tangki) | Added 5th settings tab with quick 100%, 50%, 0% fill buttons, real-time manual fill slider, capacity, fill rate, glass opacity, glow intensity, and 6 glowing stardust color styles (Palette, Cyan, Gold, Magenta, Emerald, Amethyst). |
 | **Nov 2026** | Device Handoff & GitHub Publication | Initialized clean Git repository, generated comprehensive documentation, pushed full codebase and living memory to GitHub (`https://github.com/AjiNurhakim/lunar-sweeper-3d`). |

@@ -35,6 +35,9 @@ export interface TrailerCart {
     forward: THREE.Vector3;
     up: THREE.Vector3;
     tongueMesh: THREE.Mesh;
+    chassisCenterZ: number;
+    rearHitchZ: number;
+    wheelX: number;
 }
 
 export class Rover {
@@ -371,65 +374,79 @@ export class Rover {
         const pivotGroup = new THREE.Group();
         this.moon.group.add(pivotGroup);
 
-        // Trailer Tongue / Hitch
-        const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.008, 0.024), this.darkChassisMat);
-        tongue.position.set(0, 0, -0.012);
+        // Proportional cart chassis scaling matching the vacuum tank
+        const cartWidth = Math.max(0.084 * tankLength, 0.068 * tankLength + 0.026 * tankScale);
+        const cartDepth = 0.088 * Math.max(0.85, 0.65 + 0.35 * tankScale);
+        const chassisCenterZ = -0.008 - cartDepth * 0.5;
+        const railX = cartWidth * 0.5;
+        const wheelX = railX + 0.009 * Math.max(0.8, tankScale);
+        const bumperWidth = cartWidth + 0.008 * Math.max(0.8, tankScale);
+        const rearZ = chassisCenterZ - cartDepth * 0.5;
+        const rearHitchZ = rearZ - 0.005;
+
+        // Trailer Tongue / Hitch connecting (0, 0, 0) to front edge of chassis
+        const tongueZ = (chassisCenterZ + cartDepth * 0.5) * 0.5;
+        const tongueLen = Math.max(0.016, -(chassisCenterZ + cartDepth * 0.5) + 0.004);
+        const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.009 * Math.max(0.8, tankScale), 0.008 * Math.max(0.8, tankScale), tongueLen), this.darkChassisMat);
+        tongue.position.set(0, 0, tongueZ);
         pivotGroup.add(tongue);
 
         // Cart Tray / Chassis
-        const cartChassis = new THREE.Mesh(new THREE.BoxGeometry(0.082, 0.012, 0.088), this.darkChassisMat);
-        cartChassis.position.set(0, 0.004, -0.052);
+        const cartChassis = new THREE.Mesh(new THREE.BoxGeometry(cartWidth, 0.012 * Math.max(0.8, tankScale), cartDepth), this.darkChassisMat);
+        cartChassis.position.set(0, 0.004, chassisCenterZ);
         pivotGroup.add(cartChassis);
 
         // Yellow Cart Rails & Protective Frame
-        const leftRail = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.018, 0.088), this.yellowBodyMat);
-        leftRail.position.set(-0.041, 0.015, -0.052);
+        const leftRail = new THREE.Mesh(new THREE.BoxGeometry(0.006 * Math.max(0.8, tankScale), 0.018 * tankScale, cartDepth), this.yellowBodyMat);
+        leftRail.position.set(-railX, 0.015 * tankScale, chassisCenterZ);
         pivotGroup.add(leftRail);
 
-        const rightRail = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.018, 0.088), this.yellowBodyMat);
-        rightRail.position.set(0.041, 0.015, -0.052);
+        const rightRail = new THREE.Mesh(new THREE.BoxGeometry(0.006 * Math.max(0.8, tankScale), 0.018 * tankScale, cartDepth), this.yellowBodyMat);
+        rightRail.position.set(railX, 0.015 * tankScale, chassisCenterZ);
         pivotGroup.add(rightRail);
 
-        const rearBumper = new THREE.Mesh(new THREE.BoxGeometry(0.088, 0.016, 0.007), this.yellowDarkMat);
-        rearBumper.position.set(0, 0.015, -0.095);
+        const rearBumper = new THREE.Mesh(new THREE.BoxGeometry(bumperWidth, 0.016 * tankScale, 0.007 * Math.max(0.8, tankScale)), this.yellowDarkMat);
+        rearBumper.position.set(0, 0.015 * tankScale, rearZ);
         pivotGroup.add(rearBumper);
 
         // Rear Hitch Mount & Ball for chaining subsequent carts
-        const rearHitchMount = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.008, 0.014), this.darkChassisMat);
-        rearHitchMount.position.set(0, 0.004, -0.096);
+        const rearHitchMount = new THREE.Mesh(new THREE.BoxGeometry(0.010 * Math.max(0.8, tankScale), 0.008 * Math.max(0.8, tankScale), 0.014), this.darkChassisMat);
+        rearHitchMount.position.set(0, 0.004, rearZ - 0.002);
         pivotGroup.add(rearHitchMount);
 
-        const rearHitchBall = new THREE.Mesh(new THREE.SphereGeometry(0.005, 8, 8), this.darkChassisMat);
-        rearHitchBall.position.set(0, 0.004, -0.098);
+        const rearHitchBall = new THREE.Mesh(new THREE.SphereGeometry(0.005 * Math.max(0.8, tankScale), 8, 8), this.darkChassisMat);
+        rearHitchBall.position.set(0, 0.004, rearHitchZ);
         pivotGroup.add(rearHitchBall);
 
         // Cart Wheels (2 wheels per trailer cart - layered with zero Z-fighting)
         const cartWheelMeshes: THREE.Group[] = [];
+        const tireRadius = 0.018 * Math.max(0.85, 0.70 + 0.30 * tankScale);
+        const tireWidth = 0.013 * Math.max(0.85, 0.70 + 0.30 * tankScale);
         [-1, 1].forEach(side => {
             const wheelGroup = new THREE.Group();
-            wheelGroup.position.set(side * 0.049, 0, -0.052);
+            wheelGroup.position.set(side * wheelX, 0, chassisCenterZ);
 
             const tire = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.018, 0.018, 0.013, 18),
+                new THREE.CylinderGeometry(tireRadius, tireRadius, tireWidth, 18),
                 this.darkChassisMat
             );
             tire.rotation.z = Math.PI / 2;
             wheelGroup.add(tire);
 
             const hub = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.010, 0.010, 0.0025, 14),
+                new THREE.CylinderGeometry(tireRadius * 0.55, tireRadius * 0.55, 0.0025, 14),
                 this.yellowBodyMat
             );
             hub.rotation.z = Math.PI / 2;
-            hub.position.x = side * 0.0068;
+            hub.position.x = side * (tireWidth * 0.5 + 0.0003);
             wheelGroup.add(hub);
 
             const nut = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.0035, 0.0035, 0.002, 8),
+                new THREE.CylinderGeometry(0.0035 * Math.max(0.8, tankScale), 0.0035 * Math.max(0.8, tankScale), 0.002, 8),
                 this.darkChassisMat
             );
             nut.rotation.z = Math.PI / 2;
-            nut.position.x = side * 0.0082;
+            nut.position.x = side * (tireWidth * 0.5 + 0.0017);
             wheelGroup.add(nut);
 
             pivotGroup.add(wheelGroup);
@@ -437,16 +454,18 @@ export class Rover {
         });
 
         // Top-facing 4-segment stardust gauge on cart deck
-        const gaugeBezel = new THREE.Mesh(new THREE.BoxGeometry(0.076, 0.003, 0.014), this.darkChassisMat);
-        gaugeBezel.position.set(0, 0.017, -0.082);
+        const bezelWidth = Math.min(cartWidth * 0.88, 0.055 * tankLength + 0.020 * tankScale);
+        const gaugeBezel = new THREE.Mesh(new THREE.BoxGeometry(bezelWidth, 0.003, 0.014 * Math.max(0.8, tankScale)), this.darkChassisMat);
+        gaugeBezel.position.set(0, 0.017 * tankScale, chassisCenterZ + cartDepth * 0.32);
         pivotGroup.add(gaugeBezel);
 
         const topGaugeMats: THREE.MeshBasicMaterial[] = [];
-        const segPositions = [-0.025, -0.008, 0.008, 0.025];
+        const segStep = bezelWidth * 0.24;
+        const segPositions = [-segStep * 1.5, -segStep * 0.5, segStep * 0.5, segStep * 1.5];
         segPositions.forEach(xOffset => {
             const mat = new THREE.MeshBasicMaterial({ color: '#1E293B' });
-            const seg = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.004, 0.009), mat);
-            seg.position.set(xOffset, 0.019, -0.082);
+            const seg = new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.008, segStep * 0.72), 0.004 * tankScale, 0.009 * Math.max(0.8, tankScale)), mat);
+            seg.position.set(xOffset, 0.019 * tankScale, chassisCenterZ + cartDepth * 0.32);
             pivotGroup.add(seg);
             topGaugeMats.push(mat);
         });
@@ -454,7 +473,7 @@ export class Rover {
         // Horizontal Transparent Vacuum Capsule Tank
         const horizontalTankGroup = new THREE.Group();
         const yElevation = 0.028 + (tankScale - 1.0) * 0.018;
-        horizontalTankGroup.position.set(0, yElevation, -0.048);
+        horizontalTankGroup.position.set(0, yElevation, chassisCenterZ);
         pivotGroup.add(horizontalTankGroup);
 
         // Heavy-duty mounting cradles under the capsule (spaced by tankLength, sized by tankScale)
@@ -571,10 +590,11 @@ export class Rover {
 
         // 3-Stage Dynamic LEDs on rear bumper
         const cartLedMats: THREE.MeshBasicMaterial[] = [];
-        [-0.020, 0.0, 0.020].forEach(xOffset => {
+        const ledSpacing = Math.min(0.024 * tankLength, bumperWidth * 0.24);
+        [-ledSpacing, 0.0, ledSpacing].forEach(xOffset => {
             const mat = new THREE.MeshBasicMaterial({ color: '#1E293B' });
-            const led = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.006, 0.003), mat);
-            led.position.set(xOffset, 0.015, -0.095);
+            const led = new THREE.Mesh(new THREE.BoxGeometry(0.012 * Math.max(0.8, tankScale), 0.006 * Math.max(0.8, tankScale), 0.003), mat);
+            led.position.set(xOffset, 0.015 * tankScale, rearZ);
             pivotGroup.add(led);
             cartLedMats.push(mat);
         });
@@ -603,7 +623,10 @@ export class Rover {
             hitchPos: new THREE.Vector3(),
             forward: new THREE.Vector3(0, 0, 1),
             up: new THREE.Vector3(0, 1, 0),
-            tongueMesh: tongue
+            tongueMesh: tongue,
+            chassisCenterZ,
+            rearHitchZ,
+            wheelX
         };
     }
 
@@ -634,8 +657,6 @@ export class Rover {
     public initCartPositions(): void {
         const invMoonScale = 1.0 / Math.max(0.1, this.moon.moonScale);
         const spacing = THREE.MathUtils.clamp(ConfigManager.current.cartSpacing || 1.0, 0.6, 2.5);
-        const axleDist = (0.052 * spacing) * invMoonScale;
-        const rearDist = 0.046 * invMoonScale;
 
         // Rover rear hitch in moon.group coordinates
         this._tmpCartHitch.set(0, 0.022, -0.065);
@@ -648,6 +669,8 @@ export class Rover {
 
         for (let i = 0; i < this.trailerCarts.length; i++) {
             const cart = this.trailerCarts[i];
+            const axleOffset = Math.abs(cart.chassisCenterZ || -0.052);
+            const axleDist = (axleOffset * spacing) * invMoonScale;
             cart.hitchPos.copy(currentHitch);
 
             // Place axle along reverse heading from hitch
@@ -675,18 +698,16 @@ export class Rover {
             cart.pivotGroup.updateMatrixWorld(true);
 
             // Compute next hitch ball position
-            currentHitch.copy(cart.axlePos).addScaledVector(cart.forward, -rearDist);
-            currentHitch.addScaledVector(this._tmpSlopeNormal, 0.004 * invMoonScale);
+            this._tmpCartHitch.set(0, 0.004, cart.rearHitchZ || -0.098);
+            cart.pivotGroup.localToWorld(this._tmpCartHitch);
+            this.moon.group.worldToLocal(this._tmpCartHitch);
+            currentHitch.copy(this._tmpCartHitch);
         }
     }
 
     public updateTankScale(scale: number): void {
-        const clamped = THREE.MathUtils.clamp(scale, 0.5, 2.5);
-        for (const cart of this.trailerCarts) {
-            cart.horizontalTankGroup.scale.set(clamped, clamped, clamped);
-            const yElevation = 0.028 + (clamped - 1.0) * 0.018;
-            cart.horizontalTankGroup.position.y = yElevation;
-        }
+        ConfigManager.current.tankScale = THREE.MathUtils.clamp(scale, 0.5, 2.5);
+        this.applyConfig();
     }
 
     public updateAllCartsStyle(): void {
@@ -898,6 +919,10 @@ export class Rover {
         } else if (throttle < 0) {
             targetSpeed = throttle * maxReverseSpeed; // Slower, deliberate reverse speed
             accelRate = cfg.accelRate * 0.60;       // Smooth, gentle reverse acceleration
+        } else if (steer !== 0) {
+            // When pressing Left or Right alone without throttle, probe creeps forward slightly
+            targetSpeed = Math.abs(steer) * maxForwardSpeed * 0.35;
+            accelRate = cfg.accelRate * 0.85;
         } else {
             targetSpeed = 0;
             accelRate = cfg.accelRate * 0.75;       // Natural rolling friction deceleration
@@ -966,7 +991,7 @@ export class Rover {
         const cartCap = this.stats.tankCapacity / numCarts;
         const currentDust = this.stats.currentDust;
         const tankLength = ConfigManager.current.tankLength || 1.0;
-        const swirlTime = performance.now() * 0.005;
+        const tankScale = ConfigManager.current.tankScale || 1.0;
 
         // Overall visual fill fraction across the entire rover capacity (for HUD compatibility)
         const overallTargetFill = THREE.MathUtils.clamp(this.stats.currentDust / this.stats.tankCapacity, 0.0, 1.0);
@@ -1038,18 +1063,17 @@ export class Rover {
                 }
             }
 
-            // Swirl internal glowing dust particles inside the horizontal filled volume
-            const cartSwirlTime = swirlTime + i * 0.9;
+            // Internal glowing dust particles: calm and completely still inside the tank (zero vibration/swirl)
             for (let d = 0; d < cart.tankDustParticles.length; d++) {
                 const bead = cart.tankDustParticles[d];
                 if (cart.visualFill > 0.03) {
                     bead.visible = true;
-                    const angle = cartSwirlTime + d * (Math.PI * 2 / cart.tankDustParticles.length);
-                    const r = 0.010 * (0.8 + 0.2 * Math.sin(cartSwirlTime * 0.8 + d));
                     const currentLen = cart.visualFill * 0.066 * tankLength;
-                    bead.position.x = -0.033 * tankLength + (d / Math.max(1, cart.tankDustParticles.length - 1)) * currentLen;
-                    bead.position.y = Math.sin(angle) * r;
-                    bead.position.z = Math.cos(angle) * r;
+                    const staticAngle = (d / cart.tankDustParticles.length) * Math.PI * 2;
+                    const staticR = 0.007 * tankScale;
+                    bead.position.x = -0.033 * tankLength + ((d + 0.5) / cart.tankDustParticles.length) * currentLen;
+                    bead.position.y = Math.sin(staticAngle) * staticR;
+                    bead.position.z = Math.cos(staticAngle) * staticR;
                 } else {
                     bead.visible = false;
                 }
@@ -1126,7 +1150,6 @@ export class Rover {
         this.group.updateMatrixWorld(true);
 
         const spacing = THREE.MathUtils.clamp(ConfigManager.current.cartSpacing || 1.0, 0.6, 2.5);
-        const axleDist = (0.052 * spacing) * invMoonScale;
 
         // 1. Rover rear hitch in moon.group coordinates
         this._tmpCartHitch.set(0, 0.022, -0.065);
@@ -1139,6 +1162,9 @@ export class Rover {
         for (let i = 0; i < this.trailerCarts.length; i++) {
             const cart = this.trailerCarts[i];
             if (!cart.pivotGroup) continue;
+
+            const axleOffset = Math.abs(cart.chassisCenterZ || -0.052);
+            const axleDist = (axleOffset * spacing) * invMoonScale;
 
             cart.hitchPos.copy(this._tmpHitchPoint);
 
@@ -1186,8 +1212,9 @@ export class Rover {
             this._tmpLeft.crossVectors(cart.up, this._tmpForward).normalize();
 
             // Transverse roll sampling (left and right wheel slope)
-            this._tmpCartLeft.copy(cart.axlePos).addScaledVector(this._tmpLeft, 0.049 * invMoonScale);
-            this._tmpCartRight.copy(cart.axlePos).addScaledVector(this._tmpLeft, -0.049 * invMoonScale);
+            const wheelHalfWidth = (cart.wheelX || 0.049) * invMoonScale;
+            this._tmpCartLeft.copy(cart.axlePos).addScaledVector(this._tmpLeft, wheelHalfWidth);
+            this._tmpCartRight.copy(cart.axlePos).addScaledVector(this._tmpLeft, -wheelHalfWidth);
 
             const dirL = this._tmpCartCenter.copy(this._tmpCartLeft).normalize();
             const rL = this.moon.sampleActualSurfaceRadiusAt(dirL.x, dirL.y, dirL.z);
@@ -1197,7 +1224,7 @@ export class Rover {
 
             const rollDiff = rL - rR;
             const targetRoll = THREE.MathUtils.clamp(
-                Math.atan2(rollDiff, 2 * 0.049 * invMoonScale),
+                Math.atan2(rollDiff, 2 * wheelHalfWidth),
                 -0.35,
                 0.35
             );
@@ -1224,7 +1251,7 @@ export class Rover {
             cart.pivotGroup.updateMatrixWorld(true);
 
             // Rear hitch position in moon.group coordinates for the next cart
-            this._tmpCartHitch.set(0, 0.004, -0.098);
+            this._tmpCartHitch.set(0, 0.004, cart.rearHitchZ || -0.098);
             cart.pivotGroup.localToWorld(this._tmpCartHitch);
             this.moon.group.worldToLocal(this._tmpCartHitch);
             this._tmpHitchPoint.copy(this._tmpCartHitch);
