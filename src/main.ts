@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Moon, MOON_PALETTES } from './entities/Moon';
 import { Rover } from './entities/Rover';
+import { BaseStation } from './entities/BaseStation';
 import { Scenery } from './entities/Scenery';
 import { SweeperSystem } from './systems/SweeperSystem';
 import { CameraController } from './core/CameraController';
@@ -22,6 +23,7 @@ class Game {
     private scenery!: Scenery;
     private moon!: Moon;
     private rover!: Rover;
+    private baseStation!: BaseStation;
 
     private sweeperSystem!: SweeperSystem;
     private cameraCtrl!: CameraController;
@@ -76,6 +78,7 @@ class Game {
         this.scenery = new Scenery(this.scene);
         this.moon = new Moon(this.scene);
         this.rover = new Rover(this.moon);
+        this.baseStation = new BaseStation(this.moon);
 
         // 5. Systems & Controls
         this.sweeperSystem = new SweeperSystem(this.moon, this.rover);
@@ -143,6 +146,7 @@ class Game {
         this.moon.applyShaderConfig();
         this.rover.applyConfig();
         this.rover.resetPosition();
+        this.baseStation.repositionOnMoon();
 
         // Clean initial small area under sweeper
         this.sweeperSystem.update(0.016, true);
@@ -163,29 +167,38 @@ class Game {
         // 1. Continuous Sweeper
         this.sweeperSystem.update(dt, false);
 
-        // Auto-deposit dust into rocket landing pad when rover drives across north pole pad (up.y >= 0.84)
-        if (this.rover.up.y >= 0.84 && this.rover.stats.currentDust > 0) {
-            const depositRate = 50 * dt;
-            const prevDust = this.rover.stats.currentDust;
-            this.rover.stats.currentDust = Math.max(0, this.rover.stats.currentDust - depositRate);
-            if (prevDust > 0 && this.rover.stats.currentDust === 0) {
-                this.sound.playDepositWhoosh();
-                this.hud.showToast('Debu disetor ke Roket! Tangki kini kosong.');
-            }
-        }
-
         // 2. Fading Tire Trails
         this.moon.updateTrails(dt);
 
         // 3. Rover Physics with dynamic suspension tilt & roll
         this.rover.updatePhysics(throttle, steer, dt);
 
+        // Auto-deposit dust into Rocket ONLY when suction hose is firmly attached to cart port
+        const isNearRocket = this.baseStation.isRoverInDockingZone(this.rover);
+        let isUnloading = false;
+
+        if (isNearRocket && this.rover.stats.currentDust > 0 && this.baseStation.isHoseConnected()) {
+            const depositRate = 55 * dt;
+            const prevDust = this.rover.stats.currentDust;
+            this.rover.stats.currentDust = Math.max(0, this.rover.stats.currentDust - depositRate);
+            isUnloading = true;
+
+            if (prevDust > 0 && this.rover.stats.currentDust === 0) {
+                this.sound.playDepositWhoosh();
+                this.hud.showToast('Debu disedot ke Roket! Tangki kini kosong.');
+            }
+        }
+
+        // 4. Update Base Station & Rocket animations
+        const cleanPct = this.moon.getCleanPercentage();
+        const isReadyToLaunch = cleanPct >= 98.0;
+        this.baseStation.update(dt, this.rover, isUnloading, isReadyToLaunch);
+
         // 4. Scenery rotation & Camera update
         this.scenery.update(dt);
         this.cameraCtrl.update(dt);
 
         // 5. Update HUD Clean Percentage
-        const cleanPct = this.moon.getCleanPercentage();
         this.hud.update(cleanPct);
 
         // 6. Render 3D Scene

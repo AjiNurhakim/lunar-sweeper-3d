@@ -929,6 +929,77 @@ export class Rover {
         return this.stats.currentDust >= (this.stats.tankCapacity - 0.001);
     }
 
+    /**
+     * Returns the exact world coordinates and normal vector of a cart's lateral suction docking port.
+     * Automatically picks the side (left or right) closest to targetPos (the Rocket).
+     */
+    public getCartSuctionPortWorld(
+        cartIndex: number,
+        targetPos?: THREE.Vector3,
+        outPos = new THREE.Vector3(),
+        outNormal = new THREE.Vector3()
+    ): { position: THREE.Vector3; normal: THREE.Vector3 } {
+        if (this.trailerCarts.length === 0 || cartIndex < 0 || cartIndex >= this.trailerCarts.length) {
+            this.visualBodyGroup.getWorldPosition(outPos);
+            outNormal.copy(this.left).negate();
+            return { position: outPos, normal: outNormal };
+        }
+
+        const cart = this.trailerCarts[cartIndex];
+        cart.pivotGroup.updateMatrixWorld(true);
+        const tankGroup = cart.horizontalTankGroup;
+        tankGroup.updateMatrixWorld(true);
+
+        const cfg = ConfigManager.current;
+        const tankScale = cfg.tankScale || 1.0;
+        const tankLength = cfg.tankLength || 1.0;
+        const portX = 0.034 * tankLength + 0.0095 * tankScale;
+
+        // Both left (-X) and right (+X) ports in tank local space
+        const leftLocal = new THREE.Vector3(-portX, 0, 0);
+        const rightLocal = new THREE.Vector3(portX, 0, 0);
+
+        const leftWorld = leftLocal.applyMatrix4(tankGroup.matrixWorld);
+        const rightWorld = rightLocal.applyMatrix4(tankGroup.matrixWorld);
+
+        // Pick side closest to targetPos (the Rocket)
+        if (targetPos && rightWorld.distanceTo(targetPos) < leftWorld.distanceTo(targetPos)) {
+            outPos.copy(rightWorld);
+            outNormal.set(1, 0, 0).transformDirection(tankGroup.matrixWorld).normalize();
+        } else {
+            outPos.copy(leftWorld);
+            outNormal.set(-1, 0, 0).transformDirection(tankGroup.matrixWorld).normalize();
+        }
+
+        return { position: outPos, normal: outNormal };
+    }
+
+    /**
+     * Determines which cart is currently being unloaded (sequential emptying: highest cart with dust first).
+     */
+    public getActiveUnloadingCartIndex(): number {
+        const numCarts = this.trailerCarts.length;
+        if (numCarts === 0) return -1;
+        const cartCap = this.stats.tankCapacity / numCarts;
+        for (let i = numCarts - 1; i >= 0; i--) {
+            const startThreshold = i * cartCap;
+            if (this.stats.currentDust > startThreshold + 0.01) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Returns the current stardust color inside the vacuum tanks.
+     */
+    public getVacuumDustColor(out = new THREE.Color()): THREE.Color {
+        if (this.trailerCarts.length > 0 && this.trailerCarts[0].tankFillMat) {
+            return out.copy(this.trailerCarts[0].tankFillMat.color);
+        }
+        return out.set('#38BDF8');
+    }
+
     public setDust(amount: number): void {
         this.stats.currentDust = THREE.MathUtils.clamp(amount, 0, this.stats.tankCapacity);
     }
