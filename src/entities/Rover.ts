@@ -24,6 +24,12 @@ export interface TrailerCart {
     topGaugeMats: THREE.MeshBasicMaterial[];
     yaw: number;
     targetYaw: number;
+    pitch: number;
+    targetPitch: number;
+    roll: number;
+    targetRoll: number;
+    visualFill: number;
+    targetFill: number;
 }
 
 export class Rover {
@@ -102,6 +108,10 @@ export class Rover {
     private _tmpSlopeNormal = new THREE.Vector3();
     private _tmpLeft = new THREE.Vector3();
     private _tmpForward = new THREE.Vector3();
+    private _tmpCartCenter = new THREE.Vector3();
+    private _tmpCartLeft = new THREE.Vector3();
+    private _tmpCartRight = new THREE.Vector3();
+    private _tmpCartHitch = new THREE.Vector3();
 
     constructor(moon: Moon) {
         this.moon = moon;
@@ -128,15 +138,11 @@ export class Rover {
         const baseCap = cfg.tankCapacity || 100;
         const count = THREE.MathUtils.clamp(Math.round(cfg.cartCount || 1), 1, 5);
         const scale = THREE.MathUtils.clamp(cfg.tankScale || 1.0, 0.5, 2.5);
-        this.stats.tankCapacity = Math.round(baseCap * count * Math.max(0.5, scale));
+        const length = THREE.MathUtils.clamp(cfg.tankLength || 1.0, 0.5, 2.5);
+        this.stats.tankCapacity = Math.round(baseCap * count * Math.max(0.5, scale) * Math.max(0.5, length));
         this.updateSweeperVisualWidth();
 
-        if (this.trailerCarts.length !== count) {
-            this.rebuildCarts(count);
-        } else {
-            this.updateTankScale(scale);
-        }
-
+        this.rebuildCarts(count);
         this.updateAllCartsStyle();
 
         // Counter-scale the rover and dust groups so the rover maintains constant physical world size
@@ -355,7 +361,7 @@ export class Rover {
         this.updateSweeperVisualWidth();
     }
 
-    private buildSingleCart(index: number, parent: THREE.Group, tankScale: number): TrailerCart {
+    private buildSingleCart(index: number, parent: THREE.Group, tankScale: number, tankLength: number): TrailerCart {
         const pivotGroup = new THREE.Group();
         if (index === 0) {
             pivotGroup.position.set(0, 0.022, -0.065);
@@ -449,32 +455,33 @@ export class Rover {
         const horizontalTankGroup = new THREE.Group();
         const yElevation = 0.028 + (tankScale - 1.0) * 0.018;
         horizontalTankGroup.position.set(0, yElevation, -0.048);
-        horizontalTankGroup.scale.set(tankScale, tankScale, tankScale);
         pivotGroup.add(horizontalTankGroup);
 
-        // Heavy-duty mounting cradles under the capsule
-        [-0.024, 0.024].forEach(xPos => {
-            const cradle = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.014, 0.038), this.darkChassisMat);
-            cradle.position.set(xPos, -0.008, 0);
+        // Heavy-duty mounting cradles under the capsule (spaced by tankLength, sized by tankScale)
+        [-0.024 * tankLength, 0.024 * tankLength].forEach(xPos => {
+            const cradle = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.014 * tankScale, 0.038 * tankScale), this.darkChassisMat);
+            cradle.position.set(xPos, -0.008 * tankScale, 0);
             horizontalTankGroup.add(cradle);
         });
 
-        // Left & Right Metallic End Caps
-        [-0.037, 0.037].forEach(xPos => {
+        // Left & Right Metallic End Caps & Collars (positioned at ends of scaled length)
+        const capX = 0.034 * tankLength + 0.004 * tankScale;
+        const collarX = 0.034 * tankLength + 0.001 * tankScale;
+        [-1, 1].forEach(side => {
             const cap = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.024, 0.024, 0.008, 18),
+                new THREE.CylinderGeometry(0.024 * tankScale, 0.024 * tankScale, 0.008 * tankScale, 18),
                 this.yellowDarkMat
             );
             cap.rotation.z = Math.PI / 2;
-            cap.position.set(xPos, 0, 0);
+            cap.position.set(side * capX, 0, 0);
             horizontalTankGroup.add(cap);
 
             const collar = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.0245, 0.0245, 0.003, 18),
+                new THREE.CylinderGeometry(0.0245 * tankScale, 0.0245 * tankScale, 0.003 * tankScale, 18),
                 this.darkChassisMat
             );
             collar.rotation.z = Math.PI / 2;
-            collar.position.set(xPos > 0 ? xPos - 0.004 : xPos + 0.004, 0, 0);
+            collar.position.set(side * collarX, 0, 0);
             horizontalTankGroup.add(collar);
         });
 
@@ -488,7 +495,7 @@ export class Rover {
             depthWrite: false
         });
         const glassTube = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.022, 0.022, 0.068, 20),
+            new THREE.CylinderGeometry(0.022 * tankScale, 0.022 * tankScale, 0.068 * tankLength, 20),
             tankGlassMat
         );
         glassTube.rotation.z = Math.PI / 2;
@@ -496,16 +503,16 @@ export class Rover {
 
         // Polished Chrome Center Rod
         const coreRod = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.0035, 0.0035, 0.068, 12),
+            new THREE.CylinderGeometry(0.0035 * tankScale, 0.0035 * tankScale, 0.068 * tankLength, 12),
             this.coreRodMat
         );
         coreRod.rotation.z = Math.PI / 2;
         horizontalTankGroup.add(coreRod);
 
         // 3 Vertical Calibration Tick Rings
-        [-0.017, 0.0, 0.017].forEach(xPos => {
+        [-0.017 * tankLength, 0.0, 0.017 * tankLength].forEach(xPos => {
             const tickRing = new THREE.Mesh(
-                new THREE.TorusGeometry(0.0224, 0.0011, 8, 24),
+                new THREE.TorusGeometry(0.0224 * tankScale, 0.0011 * tankScale, 8, 24),
                 this.tickMat
             );
             tickRing.rotation.y = Math.PI / 2;
@@ -525,12 +532,12 @@ export class Rover {
             opacity: 0.95
         });
         const tankFillMesh = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.020, 0.020, 1.0, 18),
+            new THREE.CylinderGeometry(0.020 * tankScale, 0.020 * tankScale, 1.0, 18),
             tankFillMat
         );
         tankFillMesh.rotation.z = Math.PI / 2;
         tankFillMesh.scale.set(1.0, 0.001, 1.0);
-        tankFillMesh.position.set(-0.033, 0, 0);
+        tankFillMesh.position.set(-0.033 * tankLength, 0, 0);
         horizontalTankGroup.add(tankFillMesh);
 
         // Razor-Sharp Glowing Surface Floater Ring
@@ -541,11 +548,11 @@ export class Rover {
             roughness: 0.2
         });
         const tankFloaterMesh = new THREE.Mesh(
-            new THREE.TorusGeometry(0.0205, 0.0018, 8, 20),
+            new THREE.TorusGeometry(0.0205 * tankScale, 0.0018 * tankScale, 8, 20),
             tankFloaterMat
         );
         tankFloaterMesh.rotation.y = Math.PI / 2;
-        tankFloaterMesh.position.set(-0.033, 0, 0);
+        tankFloaterMesh.position.set(-0.033 * tankLength, 0, 0);
         tankFloaterMesh.visible = false;
         horizontalTankGroup.add(tankFloaterMesh);
 
@@ -553,7 +560,7 @@ export class Rover {
         const tankDustParticles: THREE.Mesh[] = [];
         for (let d = 0; d < 6; d++) {
             const bead = new THREE.Mesh(
-                new THREE.SphereGeometry(0.0035, 8, 8),
+                new THREE.SphereGeometry(0.0035 * tankScale, 8, 8),
                 new THREE.MeshBasicMaterial({ color: d % 2 === 0 ? '#FDE047' : '#38BDF8' })
             );
             bead.position.set(0, 0, 0);
@@ -585,7 +592,13 @@ export class Rover {
             cartLedMats,
             topGaugeMats,
             yaw: 0,
-            targetYaw: 0
+            targetYaw: 0,
+            pitch: 0,
+            targetPitch: 0,
+            roll: 0,
+            targetRoll: 0,
+            visualFill: 0,
+            targetFill: 0
         };
     }
 
@@ -598,13 +611,13 @@ export class Rover {
         }
         this.trailerCarts = [];
 
-        const tankScale = ConfigManager.current.tankScale || 1.0;
+        const tankScale = THREE.MathUtils.clamp(ConfigManager.current.tankScale || 1.0, 0.5, 2.5);
+        const tankLength = THREE.MathUtils.clamp(ConfigManager.current.tankLength || 1.0, 0.5, 2.5);
         let parentGroup: THREE.Group = this.visualBodyGroup;
 
         for (let i = 0; i < targetCount; i++) {
-            const cart = this.buildSingleCart(i, parentGroup, tankScale);
+            const cart = this.buildSingleCart(i, parentGroup, tankScale, tankLength);
             this.trailerCarts.push(cart);
-            // The subsequent cart attaches to this cart's pivot group
             parentGroup = cart.pivotGroup;
         }
 
@@ -767,18 +780,26 @@ export class Rover {
         this.stats.currentDust = 0;
         this.visualTankFill = 0;
 
+        const tankLength = ConfigManager.current.tankLength || 1.0;
         for (const cart of this.trailerCarts) {
             cart.yaw = 0;
             cart.targetYaw = 0;
+            cart.pitch = 0;
+            cart.targetPitch = 0;
+            cart.roll = 0;
+            cart.targetRoll = 0;
+            cart.visualFill = 0;
+            cart.targetFill = 0;
             if (cart.pivotGroup) {
-                cart.pivotGroup.rotation.y = 0;
+                cart.pivotGroup.rotation.set(0, 0, 0);
             }
             if (cart.tankFillMesh) {
                 cart.tankFillMesh.scale.set(1.0, 0.001, 1.0);
-                cart.tankFillMesh.position.set(-0.033, 0, 0);
+                cart.tankFillMesh.position.set(-0.033 * tankLength, 0, 0);
             }
             if (cart.tankFloaterMesh) {
                 cart.tankFloaterMesh.visible = false;
+                cart.tankFloaterMesh.position.set(-0.033 * tankLength, 0, 0);
             }
             for (let i = 0; i < cart.cartLedMats.length; i++) {
                 cart.cartLedMats[i].color.set('#1E293B');
@@ -790,7 +811,7 @@ export class Rover {
 
         this.syncAliases();
         this.applyConfig();
-        this.updateTransform();
+        this.updateTransform(0.016);
     }
 
     public addDust(amount: number): void {
@@ -898,40 +919,52 @@ export class Rover {
             }
         }
 
-        // Update dynamic tank fill level
-        const targetFill = THREE.MathUtils.clamp(this.stats.currentDust / this.stats.tankCapacity, 0.0, 1.0);
-        this.visualTankFill += (targetFill - this.visualTankFill) * (1 - Math.exp(-9 * dt));
-
-        // Horizontal capsule fill animation across all carts in the train
-        const fillLen = Math.max(0.001, this.visualTankFill * 0.066);
+        // Sequential Fill Logic: Carts fill one by one from Cart 0 to Cart N-1
+        const numCarts = Math.max(1, this.trailerCarts.length);
+        const cartCap = this.stats.tankCapacity / numCarts;
+        const currentDust = this.stats.currentDust;
+        const tankLength = ConfigManager.current.tankLength || 1.0;
         const swirlTime = performance.now() * 0.005;
+
+        // Overall visual fill fraction across the entire rover capacity (for HUD compatibility)
+        const overallTargetFill = THREE.MathUtils.clamp(this.stats.currentDust / this.stats.tankCapacity, 0.0, 1.0);
+        this.visualTankFill += (overallTargetFill - this.visualTankFill) * (1 - Math.exp(-9 * dt));
 
         for (let i = 0; i < this.trailerCarts.length; i++) {
             const cart = this.trailerCarts[i];
 
+            // Dust allocation for cart i
+            const startThreshold = i * cartCap;
+            const cartDust = THREE.MathUtils.clamp(currentDust - startThreshold, 0, cartCap);
+            cart.targetFill = cartCap > 0 ? (cartDust / cartCap) : 0;
+            cart.visualFill += (cart.targetFill - cart.visualFill) * (1 - Math.exp(-9 * dt));
+
+            const fillLen = Math.max(0.001, cart.visualFill * 0.066 * tankLength);
+
             if (cart.tankFillMesh) {
                 cart.tankFillMesh.scale.set(1.0, fillLen, 1.0);
-                cart.tankFillMesh.position.x = -0.033 + fillLen * 0.5;
+                cart.tankFillMesh.position.x = -0.033 * tankLength + fillLen * 0.5;
             }
 
             // Razor-sharp glowing surface floater ring sliding along X axis
             if (cart.tankFloaterMesh) {
-                if (this.visualTankFill > 0.015) {
+                if (cart.visualFill > 0.015) {
                     cart.tankFloaterMesh.visible = true;
-                    cart.tankFloaterMesh.position.x = -0.033 + this.visualTankFill * 0.066;
+                    cart.tankFloaterMesh.position.x = (-0.033 + cart.visualFill * 0.066) * tankLength;
                 } else {
                     cart.tankFloaterMesh.visible = false;
                 }
             }
 
-            // TOP-FACING 4-SEGMENT STARDUST METER ON THE TRAILER BED (Directly visible from top-down!)
+            // TOP-FACING 4-SEGMENT STARDUST METER ON THE TRAILER BED (Reflects this cart's fill!)
             if (cart.topGaugeMats.length === 4) {
-                const fill = this.visualTankFill;
+                const fill = cart.visualFill;
                 cart.topGaugeMats[0].color.set(fill >= 0.15 ? '#38BDF8' : '#1E293B');
                 cart.topGaugeMats[1].color.set(fill >= 0.40 ? '#38BDF8' : '#1E293B');
                 cart.topGaugeMats[2].color.set(fill >= 0.65 ? '#38BDF8' : '#1E293B');
                 if (fill >= 0.90) {
-                    if (fill >= 0.98) {
+                    const isOverallFull = currentDust >= this.stats.tankCapacity * 0.98;
+                    if (isOverallFull) {
                         const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.012);
                         cart.topGaugeMats[3].color.set(pulse > 0.4 ? '#FACC15' : '#EF4444');
                         cart.topGaugeMats[0].color.set('#38BDF8');
@@ -947,12 +980,15 @@ export class Rover {
 
             // 3-Stage Dynamic LEDs on rear bumper of cart
             if (cart.cartLedMats.length === 3) {
-                const fill = this.visualTankFill;
+                const fill = cart.visualFill;
                 cart.cartLedMats[0].color.set(fill > 0.05 ? '#38BDF8' : '#1E293B');
                 cart.cartLedMats[1].color.set(fill > 0.50 ? '#38BDF8' : '#1E293B');
-                if (fill >= 0.98) {
+                const isOverallFull = currentDust >= this.stats.tankCapacity * 0.98;
+                if (fill >= 0.98 && isOverallFull) {
                     const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.012);
                     cart.cartLedMats[2].color.set(pulse > 0.4 ? '#FACC15' : '#EF4444');
+                } else if (fill >= 0.95) {
+                    cart.cartLedMats[2].color.set('#38BDF8');
                 } else {
                     cart.cartLedMats[2].color.set('#1E293B');
                 }
@@ -962,12 +998,12 @@ export class Rover {
             const cartSwirlTime = swirlTime + i * 0.9;
             for (let d = 0; d < cart.tankDustParticles.length; d++) {
                 const bead = cart.tankDustParticles[d];
-                if (this.visualTankFill > 0.03) {
+                if (cart.visualFill > 0.03) {
                     bead.visible = true;
                     const angle = cartSwirlTime + d * (Math.PI * 2 / cart.tankDustParticles.length);
                     const r = 0.010 * (0.8 + 0.2 * Math.sin(cartSwirlTime * 0.8 + d));
-                    const currentLen = this.visualTankFill * 0.066;
-                    bead.position.x = -0.033 + (d / Math.max(1, cart.tankDustParticles.length - 1)) * currentLen;
+                    const currentLen = cart.visualFill * 0.066 * tankLength;
+                    bead.position.x = -0.033 * tankLength + (d / Math.max(1, cart.tankDustParticles.length - 1)) * currentLen;
                     bead.position.y = Math.sin(angle) * r;
                     bead.position.z = Math.cos(angle) * r;
                 } else {
@@ -986,11 +1022,11 @@ export class Rover {
             this.beaconMesh.scale.setScalar(pulse);
         }
 
-        this.updateTransform();
+        this.updateTransform(dt);
         this.updateDustParticles(dt);
     }
 
-    private updateTransform(): void {
+    private updateTransform(dt: number = 0.016): void {
         const u = this.up;
         const f = this.forward;
         const l = this.left;
@@ -1039,5 +1075,76 @@ export class Rover {
 
         this._tmpBasisMat.makeBasis(this._tmpLeft, this._tmpSlopeNormal, this._tmpForward);
         this.group.quaternion.setFromRotationMatrix(this._tmpBasisMat);
+
+        // -------------------------------------------------------------
+        // TERRAIN GROUND CONTOURING & CRATER CONFORMANCE FOR ALL CARTS
+        // -------------------------------------------------------------
+        this.group.updateMatrixWorld(true);
+
+        for (let i = 0; i < this.trailerCarts.length; i++) {
+            const cart = this.trailerCarts[i];
+            if (!cart.pivotGroup) continue;
+
+            cart.pivotGroup.updateMatrixWorld(true);
+
+            // Wheel axle center point in cart local space: (0, 0, -0.052)
+            this._tmpCartCenter.set(0, 0, -0.052);
+            cart.pivotGroup.localToWorld(this._tmpCartCenter);
+
+            // Left wheel: (-0.049, 0, -0.052)
+            this._tmpCartLeft.set(-0.049, 0, -0.052);
+            cart.pivotGroup.localToWorld(this._tmpCartLeft);
+
+            // Right wheel: (0.049, 0, -0.052)
+            this._tmpCartRight.set(0.049, 0, -0.052);
+            cart.pivotGroup.localToWorld(this._tmpCartRight);
+
+            // Sample actual terrain height beneath cart's wheels
+            const dirCenter = this._tmpCartCenter.clone().normalize();
+            const groundRadiusCenter = this.moon.sampleActualSurfaceRadiusAt(dirCenter.x, dirCenter.y, dirCenter.z);
+
+            const dirLeft = this._tmpCartLeft.clone().normalize();
+            const groundRadiusLeft = this.moon.sampleActualSurfaceRadiusAt(dirLeft.x, dirLeft.y, dirLeft.z);
+
+            const dirRight = this._tmpCartRight.clone().normalize();
+            const groundRadiusRight = this.moon.sampleActualSurfaceRadiusAt(dirRight.x, dirRight.y, dirRight.z);
+
+            // Normal expected wheel clearance in world space (sitting on surface)
+            const desiredAxleAltitude = 0.005 * invMoonScale;
+            const currentAxleAltitude = this._tmpCartCenter.length() - groundRadiusCenter;
+
+            // If currentAxleAltitude > desiredAxleAltitude, cart is floating above ground!
+            const altitudeDiff = currentAxleAltitude - desiredAxleAltitude;
+            const wheelBase = 0.052 * invMoonScale;
+
+            // Pitch tilts down (+) into craters and tilts up (-) over bumps/ridges
+            const targetPitch = THREE.MathUtils.clamp(
+                Math.atan2(altitudeDiff, wheelBase),
+                -0.65,
+                0.65
+            );
+
+            // Roll leans with left/right crater wall slope
+            const rollDiff = groundRadiusLeft - groundRadiusRight;
+            const trackWidth = (2 * 0.049) * invMoonScale;
+            const targetRoll = THREE.MathUtils.clamp(
+                Math.atan2(rollDiff, trackWidth),
+                -0.45,
+                0.45
+            );
+
+            cart.targetPitch = targetPitch;
+            cart.targetRoll = targetRoll;
+
+            // Smooth damping
+            cart.pitch += (targetPitch - cart.pitch) * (1 - Math.exp(-14 * dt));
+            cart.roll += (targetRoll - cart.roll) * (1 - Math.exp(-12 * dt));
+
+            // Apply 3D orientation (Y = steering yaw, X = ground pitch, Z = slope roll)
+            cart.pivotGroup.rotation.order = 'YXZ';
+            cart.pivotGroup.rotation.y = cart.yaw;
+            cart.pivotGroup.rotation.x = cart.pitch;
+            cart.pivotGroup.rotation.z = cart.roll;
+        }
     }
 }

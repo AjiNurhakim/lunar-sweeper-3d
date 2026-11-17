@@ -76,6 +76,8 @@ export class HUD {
     private valCartCount = document.getElementById('val-cart-count');
     private inpTankScale = document.getElementById('inp-tank-scale') as HTMLInputElement | null;
     private valTankScale = document.getElementById('val-tank-scale');
+    private inpTankLength = document.getElementById('inp-tank-length') as HTMLInputElement | null;
+    private valTankLength = document.getElementById('val-tank-length');
     private inpTankCapacity = document.getElementById('inp-tank-capacity') as HTMLInputElement | null;
     private valTankCapacity = document.getElementById('val-tank-capacity');
     private inpTankSpeed = document.getElementById('inp-tank-speed') as HTMLInputElement | null;
@@ -431,6 +433,15 @@ export class HUD {
             this.updateJsonPreview();
         });
 
+        this.inpTankLength?.addEventListener('input', (e) => {
+            const val = parseFloat((e.target as HTMLInputElement).value);
+            ConfigManager.current.tankLength = val;
+            ConfigManager.saveToStorage();
+            this.rover.applyConfig();
+            if (this.valTankLength) this.valTankLength.textContent = `${val.toFixed(2)}x`;
+            this.updateJsonPreview();
+        });
+
         this.inpTankCapacity?.addEventListener('input', (e) => {
             const val = parseFloat((e.target as HTMLInputElement).value);
             ConfigManager.current.tankCapacity = val;
@@ -692,6 +703,8 @@ export class HUD {
         }
         if (this.inpTankScale) this.inpTankScale.value = (cfg.tankScale || 1.0).toString();
         if (this.valTankScale) this.valTankScale.textContent = `${(cfg.tankScale || 1.0).toFixed(2)}x`;
+        if (this.inpTankLength) this.inpTankLength.value = (cfg.tankLength || 1.0).toString();
+        if (this.valTankLength) this.valTankLength.textContent = `${(cfg.tankLength || 1.0).toFixed(2)}x`;
         if (this.inpTankCapacity) this.inpTankCapacity.value = (cfg.tankCapacity || 100).toString();
         if (this.valTankCapacity) this.valTankCapacity.textContent = (cfg.tankCapacity || 100).toString();
         if (this.inpTankSpeed) this.inpTankSpeed.value = (cfg.tankFillSpeed || 1.0).toString();

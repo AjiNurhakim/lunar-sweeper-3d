@@ -39,6 +39,7 @@ export interface GameConfig {
     tankGlassOpacity: number;
     tankColorStyle: string;
     tankScale: number;
+    tankLength: number;
     cartCount: number;
 }
 
@@ -84,6 +85,7 @@ export const DEFAULT_CONFIG: GameConfig = {
     tankGlassOpacity: 0.28,
     tankColorStyle: 'palette',
     tankScale: 1.00,
+    tankLength: 1.00,
     cartCount: 1
 };
 
@@ -98,6 +100,7 @@ export class ConfigManager {
                 const parsed = JSON.parse(raw);
                 this.current = { ...DEFAULT_CONFIG, ...parsed };
                 if (!this.current.tankScale || this.current.tankScale <= 0) this.current.tankScale = 1.00;
+                if (!this.current.tankLength || this.current.tankLength <= 0) this.current.tankLength = 1.00;
                 if (!this.current.cartCount || this.current.cartCount < 1) this.current.cartCount = 1;
             } else {
                 this.current = { ...DEFAULT_CONFIG };
