@@ -504,9 +504,16 @@ export class Rover {
         horizontalTankGroup.position.set(0, yElevation, chassisCenterZ);
         pivotGroup.add(horizontalTankGroup);
 
-        // Left & Right Metallic End Caps & Collars (positioned at ends of scaled length)
+        // Left & Right Metallic End Caps & Black Suction Docking Port Rings ("lingkaran hitam di samping nya")
         const capX = 0.034 * tankLength + 0.004 * tankScale;
         const collarX = 0.034 * tankLength + 0.001 * tankScale;
+        const suctionPortMat = new THREE.MeshStandardMaterial({
+            color: '#09090B',
+            roughness: 0.85,
+            metalness: 0.2
+        });
+        const suctionHoleMat = new THREE.MeshBasicMaterial({ color: '#000000' });
+
         [-1, 1].forEach(side => {
             const cap = new THREE.Mesh(
                 new THREE.CylinderGeometry(0.024 * tankScale, 0.024 * tankScale, 0.008 * tankScale, 18),
@@ -523,6 +530,33 @@ export class Rover {
             collar.rotation.z = Math.PI / 2;
             collar.position.set(side * collarX, 0, 0);
             horizontalTankGroup.add(collar);
+
+            // Black Suction Docking Port on the side of the tank (for rocket depot hose attachment)
+            const portFlange = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.015 * tankScale, 0.015 * tankScale, 0.003 * tankScale, 20),
+                this.darkChassisMat
+            );
+            portFlange.rotation.z = Math.PI / 2;
+            portFlange.position.set(side * (capX + 0.004 * tankScale), 0, 0);
+            horizontalTankGroup.add(portFlange);
+
+            // Deep black circular docking ring ("lingkaran hitam")
+            const portRing = new THREE.Mesh(
+                new THREE.TorusGeometry(0.0115 * tankScale, 0.0022 * tankScale, 10, 24),
+                suctionPortMat
+            );
+            portRing.rotation.y = Math.PI / 2;
+            portRing.position.set(side * (capX + 0.0055 * tankScale), 0, 0);
+            horizontalTankGroup.add(portRing);
+
+            // Deep black recessed suction hole in the center
+            const portHole = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.009 * tankScale, 0.009 * tankScale, 0.0035 * tankScale, 20),
+                suctionHoleMat
+            );
+            portHole.rotation.z = Math.PI / 2;
+            portHole.position.set(side * (capX + 0.0045 * tankScale), 0, 0);
+            horizontalTankGroup.add(portHole);
         });
 
         // Crystal-Clear Glass Capsule Tube
@@ -560,7 +594,7 @@ export class Rover {
             horizontalTankGroup.add(tickRing);
         });
 
-        // Radiant Luminous Stardust Fill Cylinder (Smooth & Still)
+        // Radiant Luminous Stardust Fill Cylinder (Smooth, Still, 100% Opaque - Zero Shimmer/Flicker)
         const fillCol = new THREE.Color('#38BDF8');
         const tankFillMat = new THREE.MeshStandardMaterial({
             color: fillCol,
@@ -568,8 +602,7 @@ export class Rover {
             emissiveIntensity: ConfigManager.current.tankGlowIntensity ?? 0.65,
             roughness: 0.35,
             metalness: 0.1,
-            transparent: true,
-            opacity: 0.95
+            transparent: false
         });
         const tankFillMesh = new THREE.Mesh(
             new THREE.CylinderGeometry(0.020 * tankScale, 0.020 * tankScale, 1.0, 18),
@@ -578,25 +611,13 @@ export class Rover {
         tankFillMesh.rotation.z = Math.PI / 2;
         tankFillMesh.scale.set(1.0, 0.001, 1.0);
         tankFillMesh.position.set(-0.033 * tankLength, 0, 0);
+        tankFillMesh.visible = false;
         horizontalTankGroup.add(tankFillMesh);
 
-        // Subtle Surface Floater Ring
-        const tankFloaterMat = new THREE.MeshStandardMaterial({
-            color: '#FFFFFF',
-            emissive: fillCol,
-            emissiveIntensity: 0.45,
-            roughness: 0.25,
-            transparent: true,
-            opacity: 0.70
-        });
-        const tankFloaterMesh = new THREE.Mesh(
-            new THREE.TorusGeometry(0.0203 * tankScale, 0.00055 * tankScale, 6, 24),
-            tankFloaterMat
-        );
-        tankFloaterMesh.rotation.y = Math.PI / 2;
-        tankFloaterMesh.position.set(-0.033 * tankLength, 0, 0);
+        // Dummy floater mesh kept hidden and silent (no Z-fighting)
+        const tankFloaterMat = new THREE.MeshStandardMaterial({ visible: false });
+        const tankFloaterMesh = new THREE.Mesh(new THREE.BufferGeometry(), tankFloaterMat);
         tankFloaterMesh.visible = false;
-        horizontalTankGroup.add(tankFloaterMesh);
 
         // Dust beads array kept empty so zero particles jitter or vibrate inside the vacuum
         const tankDustParticles: THREE.Mesh[] = [];
@@ -922,9 +943,9 @@ export class Rover {
             targetSpeed = throttle * maxReverseSpeed; // Slower, deliberate reverse speed
             accelRate = cfg.accelRate * 0.60;       // Smooth, gentle reverse acceleration
         } else if (steer !== 0) {
-            // When pressing Left or Right alone without throttle, probe creeps forward slightly
-            targetSpeed = Math.abs(steer) * maxForwardSpeed * 0.35;
-            accelRate = cfg.accelRate * 0.85;
+            // When pressing Left or Right alone without throttle, probe drives forward with enhanced momentum for larger, wider donuts
+            targetSpeed = Math.abs(steer) * maxForwardSpeed * 0.85;
+            accelRate = cfg.accelRate * 1.0;
         } else {
             targetSpeed = 0;
             accelRate = cfg.accelRate * 0.75;       // Natural rolling friction deceleration
@@ -940,7 +961,10 @@ export class Rover {
 
         if (effectiveTurn !== 0) {
             const isReversing = this.speed < -0.02;
-            const turnRate = cfg.turnRate * (0.55 + 0.45 * Math.min(1.3, cfg.probeSpeed)) * (isReversing ? 0.78 : 1.0);
+            const isSteerOnly = throttle === 0 && !isReversing;
+            // When turning without throttle (steering donut), maintain wider, larger circular arc
+            const donutTurnScale = isSteerOnly ? 0.72 : 1.0;
+            const turnRate = cfg.turnRate * (0.55 + 0.45 * Math.min(1.3, cfg.probeSpeed)) * (isReversing ? 0.78 : donutTurnScale);
             const dYaw = effectiveTurn * turnRate * dt;
             this.forward.applyAxisAngle(this.up, dYaw).normalize();
         }
@@ -1008,21 +1032,20 @@ export class Rover {
             cart.targetFill = cartCap > 0 ? (cartDust / cartCap) : 0;
             cart.visualFill += (cart.targetFill - cart.visualFill) * (1 - Math.exp(-9 * dt));
 
-            const fillLen = Math.max(0.001, cart.visualFill * 0.066 * tankLength);
+            const fillLen = Math.max(0.0001, cart.visualFill * 0.066 * tankLength);
 
             if (cart.tankFillMesh) {
-                cart.tankFillMesh.scale.set(1.0, fillLen, 1.0);
-                cart.tankFillMesh.position.x = -0.033 * tankLength + fillLen * 0.5;
+                if (cart.visualFill > 0.008) {
+                    cart.tankFillMesh.visible = true;
+                    cart.tankFillMesh.scale.set(1.0, fillLen, 1.0);
+                    cart.tankFillMesh.position.x = -0.033 * tankLength + fillLen * 0.5;
+                } else {
+                    cart.tankFillMesh.visible = false;
+                }
             }
 
-            // Razor-sharp glowing surface floater ring sliding along X axis
             if (cart.tankFloaterMesh) {
-                if (cart.visualFill > 0.015) {
-                    cart.tankFloaterMesh.visible = true;
-                    cart.tankFloaterMesh.position.x = (-0.033 + cart.visualFill * 0.066) * tankLength;
-                } else {
-                    cart.tankFloaterMesh.visible = false;
-                }
+                cart.tankFloaterMesh.visible = false;
             }
 
             // 4-Segment Rear Stardust Indicator (Embedded on the rear bumper of the cart)
