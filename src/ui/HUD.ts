@@ -72,6 +72,10 @@ export class HUD {
     // Tank debug & tuning controls
     private inpDebugTankFill = document.getElementById('inp-debug-tank-fill') as HTMLInputElement | null;
     private valDebugTankFill = document.getElementById('val-debug-tank-fill');
+    private inpCartCount = document.getElementById('inp-cart-count') as HTMLInputElement | null;
+    private valCartCount = document.getElementById('val-cart-count');
+    private inpTankScale = document.getElementById('inp-tank-scale') as HTMLInputElement | null;
+    private valTankScale = document.getElementById('val-tank-scale');
     private inpTankCapacity = document.getElementById('inp-tank-capacity') as HTMLInputElement | null;
     private valTankCapacity = document.getElementById('val-tank-capacity');
     private inpTankSpeed = document.getElementById('inp-tank-speed') as HTMLInputElement | null;
@@ -408,6 +412,25 @@ export class HUD {
             this.isUserDraggingTankFill = false;
         });
 
+        this.inpCartCount?.addEventListener('input', (e) => {
+            const val = parseInt((e.target as HTMLInputElement).value, 10);
+            ConfigManager.current.cartCount = val;
+            ConfigManager.saveToStorage();
+            this.rover.applyConfig();
+            if (this.valCartCount) this.valCartCount.textContent = `${val} Cart${val > 1 ? 's' : ''}`;
+            this.showToast(`🚚 Jumlah cart trailer: ${val}`);
+            this.updateJsonPreview();
+        });
+
+        this.inpTankScale?.addEventListener('input', (e) => {
+            const val = parseFloat((e.target as HTMLInputElement).value);
+            ConfigManager.current.tankScale = val;
+            ConfigManager.saveToStorage();
+            this.rover.applyConfig();
+            if (this.valTankScale) this.valTankScale.textContent = `${val.toFixed(2)}x`;
+            this.updateJsonPreview();
+        });
+
         this.inpTankCapacity?.addEventListener('input', (e) => {
             const val = parseFloat((e.target as HTMLInputElement).value);
             ConfigManager.current.tankCapacity = val;
@@ -662,6 +685,13 @@ export class HUD {
         if (this.valSpacePreset) this.valSpacePreset.textContent = (!cfg.spacePreset || cfg.spacePreset === 'auto') ? 'Otomatis' : cfg.spacePreset;
 
         // Tank & Vacuum
+        if (this.inpCartCount) this.inpCartCount.value = (cfg.cartCount || 1).toString();
+        if (this.valCartCount) {
+            const count = cfg.cartCount || 1;
+            this.valCartCount.textContent = `${count} Cart${count > 1 ? 's' : ''}`;
+        }
+        if (this.inpTankScale) this.inpTankScale.value = (cfg.tankScale || 1.0).toString();
+        if (this.valTankScale) this.valTankScale.textContent = `${(cfg.tankScale || 1.0).toFixed(2)}x`;
         if (this.inpTankCapacity) this.inpTankCapacity.value = (cfg.tankCapacity || 100).toString();
         if (this.valTankCapacity) this.valTankCapacity.textContent = (cfg.tankCapacity || 100).toString();
         if (this.inpTankSpeed) this.inpTankSpeed.value = (cfg.tankFillSpeed || 1.0).toString();

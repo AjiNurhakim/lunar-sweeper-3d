@@ -38,6 +38,8 @@ export interface GameConfig {
     tankGlowIntensity: number;
     tankGlassOpacity: number;
     tankColorStyle: string;
+    tankScale: number;
+    cartCount: number;
 }
 
 // User-chosen default settings from test tuning
@@ -80,7 +82,9 @@ export const DEFAULT_CONFIG: GameConfig = {
     tankFillSpeed: 1.00,
     tankGlowIntensity: 0.65,
     tankGlassOpacity: 0.28,
-    tankColorStyle: 'palette'
+    tankColorStyle: 'palette',
+    tankScale: 1.00,
+    cartCount: 1
 };
 
 export class ConfigManager {
@@ -93,6 +97,8 @@ export class ConfigManager {
             if (raw) {
                 const parsed = JSON.parse(raw);
                 this.current = { ...DEFAULT_CONFIG, ...parsed };
+                if (!this.current.tankScale || this.current.tankScale <= 0) this.current.tankScale = 1.00;
+                if (!this.current.cartCount || this.current.cartCount < 1) this.current.cartCount = 1;
             } else {
                 this.current = { ...DEFAULT_CONFIG };
             }

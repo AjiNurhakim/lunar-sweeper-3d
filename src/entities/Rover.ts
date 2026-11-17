@@ -10,6 +10,22 @@ export interface RoverStats {
     currentDust: number;
 }
 
+export interface TrailerCart {
+    pivotGroup: THREE.Group;
+    horizontalTankGroup: THREE.Group;
+    tankGlassMat: THREE.MeshStandardMaterial;
+    tankFillMesh: THREE.Mesh;
+    tankFillMat: THREE.MeshStandardMaterial;
+    tankFloaterMesh: THREE.Mesh;
+    tankFloaterMat: THREE.MeshStandardMaterial;
+    tankDustParticles: THREE.Mesh[];
+    cartWheelMeshes: THREE.Group[];
+    cartLedMats: THREE.MeshBasicMaterial[];
+    topGaugeMats: THREE.MeshBasicMaterial[];
+    yaw: number;
+    targetYaw: number;
+}
+
 export class Rover {
     public group: THREE.Group;
     public visualBodyGroup: THREE.Group; // Group for suspension tilt & roll
@@ -45,7 +61,8 @@ export class Rover {
     private frontWheelPivots: THREE.Group[] = [];
     private beaconMesh!: THREE.Mesh;
 
-    // Vacuum Cart Trailer & Horizontal Tank
+    // Vacuum Cart Trailer & Horizontal Tank (Multi-Cart Train & Scaling)
+    public trailerCarts: TrailerCart[] = [];
     public cartPivotGroup!: THREE.Group;
     public horizontalTankGroup!: THREE.Group;
     public tankGlassMat!: THREE.MeshStandardMaterial;
@@ -60,6 +77,13 @@ export class Rover {
     private cartYaw = 0;
     private targetCartYaw = 0;
     public visualTankFill = 0;
+
+    // Shared materials for cart building
+    private yellowBodyMat!: THREE.MeshStandardMaterial;
+    private yellowDarkMat!: THREE.MeshStandardMaterial;
+    private darkChassisMat!: THREE.MeshStandardMaterial;
+    private tickMat!: THREE.MeshBasicMaterial;
+    private coreRodMat!: THREE.MeshStandardMaterial;
 
     // Dust particles
     private dustGroup: THREE.Group;
@@ -100,48 +124,20 @@ export class Rover {
         this.stats.speed = cfg.probeSpeed;
         this.stats.sweeperPower = cfg.brushPower;
         this.stats.sweeperWidth = cfg.sweeperWidth;
-        this.stats.tankCapacity = cfg.tankCapacity || 100;
+
+        const baseCap = cfg.tankCapacity || 100;
+        const count = THREE.MathUtils.clamp(Math.round(cfg.cartCount || 1), 1, 5);
+        const scale = THREE.MathUtils.clamp(cfg.tankScale || 1.0, 0.5, 2.5);
+        this.stats.tankCapacity = Math.round(baseCap * count * Math.max(0.5, scale));
         this.updateSweeperVisualWidth();
 
-        if (this.tankGlassMat) {
-            this.tankGlassMat.opacity = cfg.tankGlassOpacity ?? 0.28;
+        if (this.trailerCarts.length !== count) {
+            this.rebuildCarts(count);
+        } else {
+            this.updateTankScale(scale);
         }
 
-        if (this.tankFillMat) {
-            let fillCol: THREE.Color;
-            const style = cfg.tankColorStyle || 'palette';
-            if (style === 'cyan') {
-                fillCol = new THREE.Color('#38BDF8');
-            } else if (style === 'gold') {
-                fillCol = new THREE.Color('#FACC15');
-            } else if (style === 'magenta') {
-                fillCol = new THREE.Color('#F43F5E');
-            } else if (style === 'emerald') {
-                fillCol = new THREE.Color('#10B981');
-            } else if (style === 'amethyst') {
-                fillCol = new THREE.Color('#A855F7');
-            } else if (this.moon.currentPalette) {
-                const p = this.moon.currentPalette;
-                fillCol = new THREE.Color(p.baseColor);
-                const hsl = { h: 0, s: 0, l: 0 };
-                fillCol.getHSL(hsl);
-                // Boost saturation and brightness for rich, vibrant glowing celestial energy
-                fillCol.setHSL(hsl.h, Math.max(0.78, hsl.s), 0.55);
-            } else {
-                fillCol = new THREE.Color('#38BDF8');
-            }
-
-            const glow = cfg.tankGlowIntensity ?? 0.65;
-            this.tankFillMat.color.copy(fillCol);
-            this.tankFillMat.emissive.copy(fillCol);
-            this.tankFillMat.emissiveIntensity = glow;
-
-            if (this.tankFloaterMat) {
-                this.tankFloaterMat.color.set('#FFFFFF');
-                this.tankFloaterMat.emissive.copy(fillCol);
-                this.tankFloaterMat.emissiveIntensity = Math.min(2.0, glow * 1.4);
-            }
-        }
+        this.updateAllCartsStyle();
 
         // Counter-scale the rover and dust groups so the rover maintains constant physical world size
         const invScale = 1.0 / Math.max(0.1, this.moon.moonScale);
@@ -178,6 +174,16 @@ export class Rover {
         const lightBristleMat = new THREE.MeshStandardMaterial({
             color: '#FEF08A',
             roughness: 0.55
+        });
+
+        this.yellowBodyMat = yellowBodyMat;
+        this.yellowDarkMat = yellowDarkMat;
+        this.darkChassisMat = darkChassisMat;
+        this.tickMat = new THREE.MeshBasicMaterial({ color: '#BAE6FD' });
+        this.coreRodMat = new THREE.MeshStandardMaterial({
+            color: '#E2E8F0',
+            roughness: 0.15,
+            metalness: 0.90
         });
 
         // 1. Sasis Bawah
@@ -336,162 +342,7 @@ export class Rover {
             this.sweeperSideCaps.push({ mesh: cap, side });
         });
 
-        // 6. Trailer Cart & Vacuum Canister Assembly
-        this.cartPivotGroup = new THREE.Group();
-        this.cartPivotGroup.position.set(0, 0.022, -0.065);
-        this.visualBodyGroup.add(this.cartPivotGroup);
-
-        // Trailer Tongue / Hitch
-        const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.008, 0.024), darkChassisMat);
-        tongue.position.set(0, 0, -0.012);
-        this.cartPivotGroup.add(tongue);
-
-        // Cart Tray / Chassis (wider and slightly longer for prominent canister)
-        const cartChassis = new THREE.Mesh(new THREE.BoxGeometry(0.082, 0.012, 0.088), darkChassisMat);
-        cartChassis.position.set(0, 0.004, -0.052);
-        this.cartPivotGroup.add(cartChassis);
-
-        // Yellow Cart Rails & Protective Frame
-        const leftRail = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.018, 0.088), yellowBodyMat);
-        leftRail.position.set(-0.041, 0.015, -0.052);
-        this.cartPivotGroup.add(leftRail);
-
-        const rightRail = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.018, 0.088), yellowBodyMat);
-        rightRail.position.set(0.041, 0.015, -0.052);
-        this.cartPivotGroup.add(rightRail);
-
-        const rearBumper = new THREE.Mesh(new THREE.BoxGeometry(0.088, 0.016, 0.007), yellowDarkMat);
-        rearBumper.position.set(0, 0.015, -0.095);
-        this.cartPivotGroup.add(rearBumper);
-
-        // Cart Wheels (2 wheels on the trailer cart - layered with zero Z-fighting)
-        this.cartWheelMeshes = [];
-        [-1, 1].forEach(side => {
-            const wheelGroup = new THREE.Group();
-            wheelGroup.position.set(side * 0.049, 0, -0.052);
-
-            const tire = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.018, 0.018, 0.013, 18),
-                darkChassisMat
-            );
-            tire.rotation.z = Math.PI / 2;
-            wheelGroup.add(tire);
-
-            const hub = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.010, 0.010, 0.0025, 14),
-                yellowBodyMat
-            );
-            hub.rotation.z = Math.PI / 2;
-            hub.position.x = side * 0.0068;
-            wheelGroup.add(hub);
-
-            const nut = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.0035, 0.0035, 0.002, 8),
-                darkChassisMat
-            );
-            nut.rotation.z = Math.PI / 2;
-            nut.position.x = side * 0.0082;
-            wheelGroup.add(nut);
-
-            this.cartPivotGroup.add(wheelGroup);
-            this.cartWheelMeshes.push(wheelGroup);
-        });
-
-        // -------------------------------------------------------------
-        // TOP-FACING 4-SEGMENT STARDUST METER ON THE TRAILER BED
-        // (100% visible from pure top-down camera view!)
-        // -------------------------------------------------------------
-        const gaugeBezel = new THREE.Mesh(new THREE.BoxGeometry(0.076, 0.003, 0.014), darkChassisMat);
-        gaugeBezel.position.set(0, 0.017, -0.082);
-        this.cartPivotGroup.add(gaugeBezel);
-
-        this.topGaugeMats = [];
-        const segPositions = [-0.025, -0.008, 0.008, 0.025];
-        segPositions.forEach(xOffset => {
-            const mat = new THREE.MeshBasicMaterial({ color: '#1E293B' });
-            const seg = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.004, 0.009), mat);
-            seg.position.set(xOffset, 0.019, -0.082);
-            this.cartPivotGroup.add(seg);
-            this.topGaugeMats.push(mat);
-        });
-
-        // -------------------------------------------------------------
-        // HORIZONTAL TRANSPARENT VACUUM CAPSULE TANK
-        // Lies horizontally across trailer (X-axis), completely exposed to top-down view!
-        // -------------------------------------------------------------
-        this.horizontalTankGroup = new THREE.Group();
-        this.horizontalTankGroup.position.set(0, 0.028, -0.048);
-        this.cartPivotGroup.add(this.horizontalTankGroup);
-
-        // Heavy-duty mounting cradles / saddles under the capsule
-        [-0.024, 0.024].forEach(xPos => {
-            const cradle = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.014, 0.038), darkChassisMat);
-            cradle.position.set(xPos, -0.008, 0);
-            this.horizontalTankGroup.add(cradle);
-        });
-
-        // Left & Right Metallic End Caps
-        [-0.037, 0.037].forEach(xPos => {
-            const cap = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.024, 0.024, 0.008, 18),
-                yellowDarkMat
-            );
-            cap.rotation.z = Math.PI / 2;
-            cap.position.set(xPos, 0, 0);
-            this.horizontalTankGroup.add(cap);
-
-            const collar = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.0245, 0.0245, 0.003, 18),
-                darkChassisMat
-            );
-            collar.rotation.z = Math.PI / 2;
-            collar.position.set(xPos > 0 ? xPos - 0.004 : xPos + 0.004, 0, 0);
-            this.horizontalTankGroup.add(collar);
-        });
-
-        // Horizontal Crystal-Clear Glass Capsule Tube
-        const glassMat = new THREE.MeshStandardMaterial({
-            color: '#E0F2FE',
-            roughness: 0.06,
-            metalness: 0.12,
-            transparent: true,
-            opacity: 0.28,
-            depthWrite: false
-        });
-        this.tankGlassMat = glassMat;
-        const glassTube = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.022, 0.022, 0.068, 20),
-            glassMat
-        );
-        glassTube.rotation.z = Math.PI / 2;
-        this.horizontalTankGroup.add(glassTube);
-
-        // Inner Horizontal Polished Chrome Spine / Center Rod (visible when tube is empty!)
-        const coreRodMat = new THREE.MeshStandardMaterial({
-            color: '#E2E8F0',
-            roughness: 0.15,
-            metalness: 0.90
-        });
-        const coreRod = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.0035, 0.0035, 0.068, 12),
-            coreRodMat
-        );
-        coreRod.rotation.z = Math.PI / 2;
-        this.horizontalTankGroup.add(coreRod);
-
-        // 3 Vertical Calibration Tick Rings (Measurement bands at 25%, 50%, 75% width)
-        const tickMat = new THREE.MeshBasicMaterial({ color: '#BAE6FD' });
-        [-0.017, 0.0, 0.017].forEach(xPos => {
-            const tickRing = new THREE.Mesh(
-                new THREE.TorusGeometry(0.0224, 0.0011, 8, 24),
-                tickMat
-            );
-            tickRing.rotation.y = Math.PI / 2;
-            tickRing.position.set(xPos, 0, 0);
-            this.horizontalTankGroup.add(tickRing);
-        });
-
-        // Vacuum Hose from cabin to Left End Cap
+        // Vacuum Hose from cabin to Left End Cap of cart 0
         const hoseMat = new THREE.MeshStandardMaterial({ color: '#0F172A', roughness: 0.7 });
         const hoseSeg = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.034, 10), hoseMat);
         hoseSeg.position.set(-0.026, 0.052, -0.054);
@@ -499,50 +350,207 @@ export class Rover {
         hoseSeg.rotation.z = -0.30;
         this.visualBodyGroup.add(hoseSeg);
 
-        // Radiant Luminous Dust Fill Mesh Inside Horizontal Tube
-        const p = this.moon.currentPalette;
-        const fillCol = new THREE.Color(p ? p.baseColor : '#38BDF8');
-        const hsl = { h: 0, s: 0, l: 0 };
-        fillCol.getHSL(hsl);
-        fillCol.setHSL(hsl.h, Math.max(0.78, hsl.s), 0.55);
+        // Build Multi-Cart Train & Tanks
+        this.rebuildCarts(ConfigManager.current.cartCount || 1);
+        this.updateSweeperVisualWidth();
+    }
 
-        this.tankFillMat = new THREE.MeshStandardMaterial({
+    private buildSingleCart(index: number, parent: THREE.Group, tankScale: number): TrailerCart {
+        const pivotGroup = new THREE.Group();
+        if (index === 0) {
+            pivotGroup.position.set(0, 0.022, -0.065);
+        } else {
+            // Attached to the rear hitch ball of the preceding cart
+            pivotGroup.position.set(0, 0.004, -0.098);
+        }
+        parent.add(pivotGroup);
+
+        // Trailer Tongue / Hitch
+        const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.008, 0.024), this.darkChassisMat);
+        tongue.position.set(0, 0, -0.012);
+        pivotGroup.add(tongue);
+
+        // Cart Tray / Chassis
+        const cartChassis = new THREE.Mesh(new THREE.BoxGeometry(0.082, 0.012, 0.088), this.darkChassisMat);
+        cartChassis.position.set(0, 0.004, -0.052);
+        pivotGroup.add(cartChassis);
+
+        // Yellow Cart Rails & Protective Frame
+        const leftRail = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.018, 0.088), this.yellowBodyMat);
+        leftRail.position.set(-0.041, 0.015, -0.052);
+        pivotGroup.add(leftRail);
+
+        const rightRail = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.018, 0.088), this.yellowBodyMat);
+        rightRail.position.set(0.041, 0.015, -0.052);
+        pivotGroup.add(rightRail);
+
+        const rearBumper = new THREE.Mesh(new THREE.BoxGeometry(0.088, 0.016, 0.007), this.yellowDarkMat);
+        rearBumper.position.set(0, 0.015, -0.095);
+        pivotGroup.add(rearBumper);
+
+        // Rear Hitch Mount & Ball for chaining subsequent carts
+        const rearHitchMount = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.008, 0.014), this.darkChassisMat);
+        rearHitchMount.position.set(0, 0.004, -0.096);
+        pivotGroup.add(rearHitchMount);
+
+        const rearHitchBall = new THREE.Mesh(new THREE.SphereGeometry(0.005, 8, 8), this.darkChassisMat);
+        rearHitchBall.position.set(0, 0.004, -0.098);
+        pivotGroup.add(rearHitchBall);
+
+        // Cart Wheels (2 wheels per trailer cart - layered with zero Z-fighting)
+        const cartWheelMeshes: THREE.Group[] = [];
+        [-1, 1].forEach(side => {
+            const wheelGroup = new THREE.Group();
+            wheelGroup.position.set(side * 0.049, 0, -0.052);
+
+            const tire = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.018, 0.018, 0.013, 18),
+                this.darkChassisMat
+            );
+            tire.rotation.z = Math.PI / 2;
+            wheelGroup.add(tire);
+
+            const hub = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.010, 0.010, 0.0025, 14),
+                this.yellowBodyMat
+            );
+            hub.rotation.z = Math.PI / 2;
+            hub.position.x = side * 0.0068;
+            wheelGroup.add(hub);
+
+            const nut = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.0035, 0.0035, 0.002, 8),
+                this.darkChassisMat
+            );
+            nut.rotation.z = Math.PI / 2;
+            nut.position.x = side * 0.0082;
+            wheelGroup.add(nut);
+
+            pivotGroup.add(wheelGroup);
+            cartWheelMeshes.push(wheelGroup);
+        });
+
+        // Top-facing 4-segment stardust gauge on cart deck
+        const gaugeBezel = new THREE.Mesh(new THREE.BoxGeometry(0.076, 0.003, 0.014), this.darkChassisMat);
+        gaugeBezel.position.set(0, 0.017, -0.082);
+        pivotGroup.add(gaugeBezel);
+
+        const topGaugeMats: THREE.MeshBasicMaterial[] = [];
+        const segPositions = [-0.025, -0.008, 0.008, 0.025];
+        segPositions.forEach(xOffset => {
+            const mat = new THREE.MeshBasicMaterial({ color: '#1E293B' });
+            const seg = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.004, 0.009), mat);
+            seg.position.set(xOffset, 0.019, -0.082);
+            pivotGroup.add(seg);
+            topGaugeMats.push(mat);
+        });
+
+        // Horizontal Transparent Vacuum Capsule Tank
+        const horizontalTankGroup = new THREE.Group();
+        const yElevation = 0.028 + (tankScale - 1.0) * 0.018;
+        horizontalTankGroup.position.set(0, yElevation, -0.048);
+        horizontalTankGroup.scale.set(tankScale, tankScale, tankScale);
+        pivotGroup.add(horizontalTankGroup);
+
+        // Heavy-duty mounting cradles under the capsule
+        [-0.024, 0.024].forEach(xPos => {
+            const cradle = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.014, 0.038), this.darkChassisMat);
+            cradle.position.set(xPos, -0.008, 0);
+            horizontalTankGroup.add(cradle);
+        });
+
+        // Left & Right Metallic End Caps
+        [-0.037, 0.037].forEach(xPos => {
+            const cap = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.024, 0.024, 0.008, 18),
+                this.yellowDarkMat
+            );
+            cap.rotation.z = Math.PI / 2;
+            cap.position.set(xPos, 0, 0);
+            horizontalTankGroup.add(cap);
+
+            const collar = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.0245, 0.0245, 0.003, 18),
+                this.darkChassisMat
+            );
+            collar.rotation.z = Math.PI / 2;
+            collar.position.set(xPos > 0 ? xPos - 0.004 : xPos + 0.004, 0, 0);
+            horizontalTankGroup.add(collar);
+        });
+
+        // Crystal-Clear Glass Capsule Tube
+        const tankGlassMat = new THREE.MeshStandardMaterial({
+            color: '#E0F2FE',
+            roughness: 0.06,
+            metalness: 0.12,
+            transparent: true,
+            opacity: ConfigManager.current.tankGlassOpacity ?? 0.28,
+            depthWrite: false
+        });
+        const glassTube = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.022, 0.022, 0.068, 20),
+            tankGlassMat
+        );
+        glassTube.rotation.z = Math.PI / 2;
+        horizontalTankGroup.add(glassTube);
+
+        // Polished Chrome Center Rod
+        const coreRod = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.0035, 0.0035, 0.068, 12),
+            this.coreRodMat
+        );
+        coreRod.rotation.z = Math.PI / 2;
+        horizontalTankGroup.add(coreRod);
+
+        // 3 Vertical Calibration Tick Rings
+        [-0.017, 0.0, 0.017].forEach(xPos => {
+            const tickRing = new THREE.Mesh(
+                new THREE.TorusGeometry(0.0224, 0.0011, 8, 24),
+                this.tickMat
+            );
+            tickRing.rotation.y = Math.PI / 2;
+            tickRing.position.set(xPos, 0, 0);
+            horizontalTankGroup.add(tickRing);
+        });
+
+        // Radiant Luminous Stardust Fill Cylinder
+        const fillCol = new THREE.Color('#38BDF8');
+        const tankFillMat = new THREE.MeshStandardMaterial({
             color: fillCol,
             emissive: fillCol,
-            emissiveIntensity: 0.65,
+            emissiveIntensity: ConfigManager.current.tankGlowIntensity ?? 0.65,
             roughness: 0.35,
             metalness: 0.1,
             transparent: true,
             opacity: 0.95
         });
-        // Unit length = 1.0 along local Y, rotated so local Y aligns with world X!
-        this.tankFillMesh = new THREE.Mesh(
+        const tankFillMesh = new THREE.Mesh(
             new THREE.CylinderGeometry(0.020, 0.020, 1.0, 18),
-            this.tankFillMat
+            tankFillMat
         );
-        this.tankFillMesh.rotation.z = Math.PI / 2;
-        this.tankFillMesh.scale.set(1.0, 0.001, 1.0);
-        this.tankFillMesh.position.set(-0.033, 0, 0);
-        this.horizontalTankGroup.add(this.tankFillMesh);
+        tankFillMesh.rotation.z = Math.PI / 2;
+        tankFillMesh.scale.set(1.0, 0.001, 1.0);
+        tankFillMesh.position.set(-0.033, 0, 0);
+        horizontalTankGroup.add(tankFillMesh);
 
-        // Razor-Sharp Glowing Surface Floater Ring (Sliding level divider along X!)
-        this.tankFloaterMat = new THREE.MeshStandardMaterial({
+        // Razor-Sharp Glowing Surface Floater Ring
+        const tankFloaterMat = new THREE.MeshStandardMaterial({
             color: '#FFFFFF',
             emissive: fillCol,
             emissiveIntensity: 0.92,
             roughness: 0.2
         });
-        this.tankFloaterMesh = new THREE.Mesh(
+        const tankFloaterMesh = new THREE.Mesh(
             new THREE.TorusGeometry(0.0205, 0.0018, 8, 20),
-            new THREE.MeshBasicMaterial({ color: '#FFFFFF' })
+            tankFloaterMat
         );
-        this.tankFloaterMesh.rotation.y = Math.PI / 2;
-        this.tankFloaterMesh.position.set(-0.033, 0, 0);
-        this.tankFloaterMesh.visible = false;
-        this.horizontalTankGroup.add(this.tankFloaterMesh);
+        tankFloaterMesh.rotation.y = Math.PI / 2;
+        tankFloaterMesh.position.set(-0.033, 0, 0);
+        tankFloaterMesh.visible = false;
+        horizontalTankGroup.add(tankFloaterMesh);
 
-        // Internal Swirling Glowing Dust Particles
-        this.tankDustParticles = [];
+        // Internal Swirling Dust Particles
+        const tankDustParticles: THREE.Mesh[] = [];
         for (let d = 0; d < 6; d++) {
             const bead = new THREE.Mesh(
                 new THREE.SphereGeometry(0.0035, 8, 8),
@@ -550,21 +558,131 @@ export class Rover {
             );
             bead.position.set(0, 0, 0);
             bead.visible = false;
-            this.horizontalTankGroup.add(bead);
-            this.tankDustParticles.push(bead);
+            horizontalTankGroup.add(bead);
+            tankDustParticles.push(bead);
         }
 
-        // 3-Stage Dynamic LED Indicators on Cart Rear Bumper
-        this.cartLedMats = [];
+        // 3-Stage Dynamic LEDs on rear bumper
+        const cartLedMats: THREE.MeshBasicMaterial[] = [];
         [-0.020, 0.0, 0.020].forEach(xOffset => {
             const mat = new THREE.MeshBasicMaterial({ color: '#1E293B' });
             const led = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.006, 0.003), mat);
             led.position.set(xOffset, 0.015, -0.095);
-            this.cartPivotGroup.add(led);
-            this.cartLedMats.push(mat);
+            pivotGroup.add(led);
+            cartLedMats.push(mat);
         });
 
-        this.updateSweeperVisualWidth();
+        return {
+            pivotGroup,
+            horizontalTankGroup,
+            tankGlassMat,
+            tankFillMesh,
+            tankFillMat,
+            tankFloaterMesh,
+            tankFloaterMat,
+            tankDustParticles,
+            cartWheelMeshes,
+            cartLedMats,
+            topGaugeMats,
+            yaw: 0,
+            targetYaw: 0
+        };
+    }
+
+    public rebuildCarts(count: number): void {
+        const targetCount = THREE.MathUtils.clamp(Math.round(count), 1, 5);
+
+        // Detach existing cart chain
+        if (this.trailerCarts.length > 0 && this.trailerCarts[0].pivotGroup.parent) {
+            this.trailerCarts[0].pivotGroup.parent.remove(this.trailerCarts[0].pivotGroup);
+        }
+        this.trailerCarts = [];
+
+        const tankScale = ConfigManager.current.tankScale || 1.0;
+        let parentGroup: THREE.Group = this.visualBodyGroup;
+
+        for (let i = 0; i < targetCount; i++) {
+            const cart = this.buildSingleCart(i, parentGroup, tankScale);
+            this.trailerCarts.push(cart);
+            // The subsequent cart attaches to this cart's pivot group
+            parentGroup = cart.pivotGroup;
+        }
+
+        this.syncAliases();
+        this.updateAllCartsStyle();
+    }
+
+    public updateTankScale(scale: number): void {
+        const clamped = THREE.MathUtils.clamp(scale, 0.5, 2.5);
+        for (const cart of this.trailerCarts) {
+            cart.horizontalTankGroup.scale.set(clamped, clamped, clamped);
+            const yElevation = 0.028 + (clamped - 1.0) * 0.018;
+            cart.horizontalTankGroup.position.y = yElevation;
+        }
+    }
+
+    public updateAllCartsStyle(): void {
+        const cfg = ConfigManager.current;
+        let fillCol: THREE.Color;
+        const style = cfg.tankColorStyle || 'palette';
+        if (style === 'cyan') {
+            fillCol = new THREE.Color('#38BDF8');
+        } else if (style === 'gold') {
+            fillCol = new THREE.Color('#FACC15');
+        } else if (style === 'magenta') {
+            fillCol = new THREE.Color('#F43F5E');
+        } else if (style === 'emerald') {
+            fillCol = new THREE.Color('#10B981');
+        } else if (style === 'amethyst') {
+            fillCol = new THREE.Color('#A855F7');
+        } else if (this.moon.currentPalette) {
+            const p = this.moon.currentPalette;
+            fillCol = new THREE.Color(p.baseColor);
+            const hsl = { h: 0, s: 0, l: 0 };
+            fillCol.getHSL(hsl);
+            fillCol.setHSL(hsl.h, Math.max(0.78, hsl.s), 0.55);
+        } else {
+            fillCol = new THREE.Color('#38BDF8');
+        }
+
+        const glow = cfg.tankGlowIntensity ?? 0.65;
+        const glassOpacity = cfg.tankGlassOpacity ?? 0.28;
+
+        for (const cart of this.trailerCarts) {
+            if (cart.tankGlassMat) {
+                cart.tankGlassMat.opacity = glassOpacity;
+            }
+            if (cart.tankFillMat) {
+                cart.tankFillMat.color.copy(fillCol);
+                cart.tankFillMat.emissive.copy(fillCol);
+                cart.tankFillMat.emissiveIntensity = glow;
+            }
+            if (cart.tankFloaterMat) {
+                cart.tankFloaterMat.color.set('#FFFFFF');
+                cart.tankFloaterMat.emissive.copy(fillCol);
+                cart.tankFloaterMat.emissiveIntensity = Math.min(2.0, glow * 1.4);
+            }
+        }
+
+        this.syncAliases();
+    }
+
+    private syncAliases(): void {
+        const c0 = this.trailerCarts[0];
+        if (!c0) return;
+        this.cartPivotGroup = c0.pivotGroup;
+        this.horizontalTankGroup = c0.horizontalTankGroup;
+        this.tankGlassMat = c0.tankGlassMat;
+        this.tankFillMesh = c0.tankFillMesh;
+        this.tankFillMat = c0.tankFillMat;
+        this.tankFloaterMesh = c0.tankFloaterMesh;
+        this.tankFloaterMat = c0.tankFloaterMat;
+        this.tankDustParticles = c0.tankDustParticles;
+        this.cartWheelMeshes = c0.cartWheelMeshes;
+        this.cartLedMats = c0.cartLedMats;
+        this.topGaugeMats = c0.topGaugeMats;
+        this.cartYaw = c0.yaw;
+        this.targetCartYaw = c0.targetYaw;
     }
 
     public updateSweeperVisualWidth(): void {
@@ -648,37 +766,29 @@ export class Rover {
         this.targetCartYaw = 0;
         this.stats.currentDust = 0;
         this.visualTankFill = 0;
-        if (this.tankFillMat && this.moon.currentPalette) {
-            const p = this.moon.currentPalette;
-            const fillCol = new THREE.Color(p.baseColor);
-            const hsl = { h: 0, s: 0, l: 0 };
-            fillCol.getHSL(hsl);
-            // Boost saturation and brightness for rich, vibrant glowing celestial energy
-            fillCol.setHSL(hsl.h, Math.max(0.78, hsl.s), 0.55);
 
-            this.tankFillMat.color.copy(fillCol);
-            this.tankFillMat.emissive.copy(fillCol);
-            this.tankFillMat.emissiveIntensity = 0.60;
-
-            if (this.tankFloaterMat) {
-                this.tankFloaterMat.color.set('#FFFFFF');
-                this.tankFloaterMat.emissive.copy(fillCol);
-                this.tankFloaterMat.emissiveIntensity = 0.90;
+        for (const cart of this.trailerCarts) {
+            cart.yaw = 0;
+            cart.targetYaw = 0;
+            if (cart.pivotGroup) {
+                cart.pivotGroup.rotation.y = 0;
+            }
+            if (cart.tankFillMesh) {
+                cart.tankFillMesh.scale.set(1.0, 0.001, 1.0);
+                cart.tankFillMesh.position.set(-0.033, 0, 0);
+            }
+            if (cart.tankFloaterMesh) {
+                cart.tankFloaterMesh.visible = false;
+            }
+            for (let i = 0; i < cart.cartLedMats.length; i++) {
+                cart.cartLedMats[i].color.set('#1E293B');
+            }
+            for (let i = 0; i < cart.topGaugeMats.length; i++) {
+                cart.topGaugeMats[i].color.set('#1E293B');
             }
         }
-        if (this.tankFillMesh) {
-            this.tankFillMesh.scale.set(1.0, 0.001, 1.0);
-            this.tankFillMesh.position.set(-0.033, 0, 0);
-        }
-        if (this.tankFloaterMesh) {
-            this.tankFloaterMesh.visible = false;
-        }
-        for (let i = 0; i < this.cartLedMats.length; i++) {
-            this.cartLedMats[i].color.set('#1E293B');
-        }
-        for (let i = 0; i < this.topGaugeMats.length; i++) {
-            this.topGaugeMats[i].color.set('#1E293B');
-        }
+
+        this.syncAliases();
         this.applyConfig();
         this.updateTransform();
     }
@@ -766,96 +876,107 @@ export class Rover {
         for (let i = 0; i < this.frontWheelPivots.length; i++) {
             this.frontWheelPivots[i].rotation.y = this.steerAngle;
         }
-        // Cart wheels spin
-        for (let i = 0; i < this.cartWheelMeshes.length; i++) {
-            this.cartWheelMeshes[i].rotation.x = this.wheelSpin;
-        }
+        // Cart wheels spin and trailer train articulation
+        for (let i = 0; i < this.trailerCarts.length; i++) {
+            const cart = this.trailerCarts[i];
+            for (let w = 0; w < cart.cartWheelMeshes.length; w++) {
+                cart.cartWheelMeshes[w].rotation.x = this.wheelSpin;
+            }
 
-        // Cart articulation trailer physics (sways slightly with steering)
-        this.targetCartYaw = THREE.MathUtils.clamp(-this.steerAngle * 0.70, -0.38, 0.38);
-        this.cartYaw += (this.targetCartYaw - this.cartYaw) * (1 - Math.exp(-8 * dt));
-        if (this.cartPivotGroup) {
-            this.cartPivotGroup.rotation.y = this.cartYaw;
+            let targetYaw = 0;
+            if (i === 0) {
+                targetYaw = THREE.MathUtils.clamp(-this.steerAngle * 0.70, -0.38, 0.38);
+            } else {
+                const prevCart = this.trailerCarts[i - 1];
+                targetYaw = THREE.MathUtils.clamp(prevCart.yaw * 0.82, -0.38, 0.38);
+            }
+            cart.targetYaw = targetYaw;
+            const springRate = Math.max(4.0, 8.5 - i * 0.9);
+            cart.yaw += (targetYaw - cart.yaw) * (1 - Math.exp(-springRate * dt));
+            if (cart.pivotGroup) {
+                cart.pivotGroup.rotation.y = cart.yaw;
+            }
         }
 
         // Update dynamic tank fill level
         const targetFill = THREE.MathUtils.clamp(this.stats.currentDust / this.stats.tankCapacity, 0.0, 1.0);
         this.visualTankFill += (targetFill - this.visualTankFill) * (1 - Math.exp(-9 * dt));
 
-        // Horizontal capsule fill animation (fills left-to-right from -0.033 to +0.033 along X)
+        // Horizontal capsule fill animation across all carts in the train
         const fillLen = Math.max(0.001, this.visualTankFill * 0.066);
-        if (this.tankFillMesh) {
-            this.tankFillMesh.scale.set(1.0, fillLen, 1.0);
-            this.tankFillMesh.position.x = -0.033 + fillLen * 0.5;
-        }
+        const swirlTime = performance.now() * 0.005;
 
-        // Razor-sharp glowing surface floater ring sliding along X axis
-        if (this.tankFloaterMesh) {
-            if (this.visualTankFill > 0.015) {
-                this.tankFloaterMesh.visible = true;
-                this.tankFloaterMesh.position.x = -0.033 + this.visualTankFill * 0.066;
-            } else {
-                this.tankFloaterMesh.visible = false;
+        for (let i = 0; i < this.trailerCarts.length; i++) {
+            const cart = this.trailerCarts[i];
+
+            if (cart.tankFillMesh) {
+                cart.tankFillMesh.scale.set(1.0, fillLen, 1.0);
+                cart.tankFillMesh.position.x = -0.033 + fillLen * 0.5;
             }
-        }
 
-        // TOP-FACING 4-SEGMENT STARDUST METER ON THE TRAILER BED (Directly visible from top-down!)
-        if (this.topGaugeMats.length === 4) {
-            const fill = this.visualTankFill;
-            // Segment 0 (25%)
-            this.topGaugeMats[0].color.set(fill >= 0.15 ? '#38BDF8' : '#1E293B');
-            // Segment 1 (50%)
-            this.topGaugeMats[1].color.set(fill >= 0.40 ? '#38BDF8' : '#1E293B');
-            // Segment 2 (75%)
-            this.topGaugeMats[2].color.set(fill >= 0.65 ? '#38BDF8' : '#1E293B');
-            // Segment 3 (100% - Warning Pulse when Full!)
-            if (fill >= 0.90) {
+            // Razor-sharp glowing surface floater ring sliding along X axis
+            if (cart.tankFloaterMesh) {
+                if (this.visualTankFill > 0.015) {
+                    cart.tankFloaterMesh.visible = true;
+                    cart.tankFloaterMesh.position.x = -0.033 + this.visualTankFill * 0.066;
+                } else {
+                    cart.tankFloaterMesh.visible = false;
+                }
+            }
+
+            // TOP-FACING 4-SEGMENT STARDUST METER ON THE TRAILER BED (Directly visible from top-down!)
+            if (cart.topGaugeMats.length === 4) {
+                const fill = this.visualTankFill;
+                cart.topGaugeMats[0].color.set(fill >= 0.15 ? '#38BDF8' : '#1E293B');
+                cart.topGaugeMats[1].color.set(fill >= 0.40 ? '#38BDF8' : '#1E293B');
+                cart.topGaugeMats[2].color.set(fill >= 0.65 ? '#38BDF8' : '#1E293B');
+                if (fill >= 0.90) {
+                    if (fill >= 0.98) {
+                        const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.012);
+                        cart.topGaugeMats[3].color.set(pulse > 0.4 ? '#FACC15' : '#EF4444');
+                        cart.topGaugeMats[0].color.set('#38BDF8');
+                        cart.topGaugeMats[1].color.set('#38BDF8');
+                        cart.topGaugeMats[2].color.set('#38BDF8');
+                    } else {
+                        cart.topGaugeMats[3].color.set('#38BDF8');
+                    }
+                } else {
+                    cart.topGaugeMats[3].color.set('#1E293B');
+                }
+            }
+
+            // 3-Stage Dynamic LEDs on rear bumper of cart
+            if (cart.cartLedMats.length === 3) {
+                const fill = this.visualTankFill;
+                cart.cartLedMats[0].color.set(fill > 0.05 ? '#38BDF8' : '#1E293B');
+                cart.cartLedMats[1].color.set(fill > 0.50 ? '#38BDF8' : '#1E293B');
                 if (fill >= 0.98) {
                     const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.012);
-                    this.topGaugeMats[3].color.set(pulse > 0.4 ? '#FACC15' : '#EF4444');
-                    this.topGaugeMats[0].color.set('#38BDF8');
-                    this.topGaugeMats[1].color.set('#38BDF8');
-                    this.topGaugeMats[2].color.set('#38BDF8');
+                    cart.cartLedMats[2].color.set(pulse > 0.4 ? '#FACC15' : '#EF4444');
                 } else {
-                    this.topGaugeMats[3].color.set('#38BDF8');
+                    cart.cartLedMats[2].color.set('#1E293B');
                 }
-            } else {
-                this.topGaugeMats[3].color.set('#1E293B');
+            }
+
+            // Swirl internal glowing dust particles inside the horizontal filled volume
+            const cartSwirlTime = swirlTime + i * 0.9;
+            for (let d = 0; d < cart.tankDustParticles.length; d++) {
+                const bead = cart.tankDustParticles[d];
+                if (this.visualTankFill > 0.03) {
+                    bead.visible = true;
+                    const angle = cartSwirlTime + d * (Math.PI * 2 / cart.tankDustParticles.length);
+                    const r = 0.010 * (0.8 + 0.2 * Math.sin(cartSwirlTime * 0.8 + d));
+                    const currentLen = this.visualTankFill * 0.066;
+                    bead.position.x = -0.033 + (d / Math.max(1, cart.tankDustParticles.length - 1)) * currentLen;
+                    bead.position.y = Math.sin(angle) * r;
+                    bead.position.z = Math.cos(angle) * r;
+                } else {
+                    bead.visible = false;
+                }
             }
         }
 
-        // 3-Stage Dynamic LEDs on rear bumper of cart
-        if (this.cartLedMats.length === 3) {
-            const fill = this.visualTankFill;
-            // LED 1 (Level > 5%)
-            this.cartLedMats[0].color.set(fill > 0.05 ? '#38BDF8' : '#1E293B');
-            // LED 2 (Level > 50%)
-            this.cartLedMats[1].color.set(fill > 0.50 ? '#38BDF8' : '#1E293B');
-            // LED 3 (Level >= 98% - Warning Pulse when Full!)
-            if (fill >= 0.98) {
-                const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.012);
-                this.cartLedMats[2].color.set(pulse > 0.4 ? '#FACC15' : '#EF4444');
-            } else {
-                this.cartLedMats[2].color.set('#1E293B');
-            }
-        }
-
-        // Swirl internal glowing dust particles inside the horizontal filled volume
-        const swirlTime = performance.now() * 0.005;
-        for (let d = 0; d < this.tankDustParticles.length; d++) {
-            const bead = this.tankDustParticles[d];
-            if (this.visualTankFill > 0.03) {
-                bead.visible = true;
-                const angle = swirlTime + d * (Math.PI * 2 / this.tankDustParticles.length);
-                const r = 0.010 * (0.8 + 0.2 * Math.sin(swirlTime * 0.8 + d));
-                const currentLen = this.visualTankFill * 0.066;
-                bead.position.x = -0.033 + (d / Math.max(1, this.tankDustParticles.length - 1)) * currentLen;
-                bead.position.y = Math.sin(angle) * r;
-                bead.position.z = Math.cos(angle) * r;
-            } else {
-                bead.visible = false;
-            }
-        }
+        this.syncAliases();
 
         if (this.sweeperRollerMesh) {
             this.sweeperRollerMesh.rotation.x = -this.sweeperSpin;
