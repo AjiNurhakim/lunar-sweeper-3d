@@ -121,6 +121,7 @@ export class Rover {
     private _tmpCartRight = new THREE.Vector3();
     private _tmpCartHitch = new THREE.Vector3();
     private _tmpHitchPoint = new THREE.Vector3();
+    private _tmpDiff = new THREE.Vector3();
 
     constructor(moon: Moon) {
         this.moon = moon;
@@ -239,22 +240,36 @@ export class Rover {
         eyeRight.position.set(0.015, 0.066, 0.025);
         this.visualBodyGroup.add(eyeRight);
 
-        // Suction Manifold & Rear Tow Bar Mount
-        const suctionManifold = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.012, 0.014, 0.040, 12),
-            darkChassisMat
-        );
-        suctionManifold.rotation.z = Math.PI / 2;
-        suctionManifold.position.set(0, 0.054, -0.056);
-        this.visualBodyGroup.add(suctionManifold);
+        // Clean Rear Cabin Exhaust Louver / Grille
+        const rearGrille = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.016, 0.004), darkChassisMat);
+        rearGrille.position.set(0, 0.062, -0.044);
+        this.visualBodyGroup.add(rearGrille);
 
-        // Hitch mount on rover rear
-        const hitchMount = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.008, 0.018), darkChassisMat);
-        hitchMount.position.set(0, 0.022, -0.058);
+        const ventStripe = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.003, 0.006), yellowDarkMat);
+        ventStripe.position.set(0, 0.062, -0.044);
+        this.visualBodyGroup.add(ventStripe);
+
+        // Rugged Probe Rear Bumper with Red Reflectors
+        const probeRearBumper = new THREE.Mesh(new THREE.BoxGeometry(0.076, 0.014, 0.008), darkChassisMat);
+        probeRearBumper.position.set(0, 0.022, -0.060);
+        this.visualBodyGroup.add(probeRearBumper);
+
+        [-0.026, 0.026].forEach(xPos => {
+            const tailReflector = new THREE.Mesh(
+                new THREE.BoxGeometry(0.010, 0.005, 0.002),
+                new THREE.MeshBasicMaterial({ color: '#EF4444' })
+            );
+            tailReflector.position.set(xPos, 0.023, -0.0645);
+            this.visualBodyGroup.add(tailReflector);
+        });
+
+        // Heavy-Duty Tow Hitch Receiver & Ball on Rover Rear
+        const hitchMount = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.008, 0.016), darkChassisMat);
+        hitchMount.position.set(0, 0.020, -0.064);
         this.visualBodyGroup.add(hitchMount);
 
-        const hitchBall = new THREE.Mesh(new THREE.SphereGeometry(0.0055, 8, 8), darkChassisMat);
-        hitchBall.position.set(0, 0.022, -0.065);
+        const hitchBall = new THREE.Mesh(new THREE.SphereGeometry(0.005, 8, 8), darkChassisMat);
+        hitchBall.position.set(0, 0.022, -0.070);
         this.visualBodyGroup.add(hitchBall);
 
         // Antena Suar
@@ -361,14 +376,6 @@ export class Rover {
             this.sweeperAssemblyGroup.add(cap);
             this.sweeperSideCaps.push({ mesh: cap, side });
         });
-
-        // Vacuum Hose from cabin to Left End Cap of cart 0
-        const hoseMat = new THREE.MeshStandardMaterial({ color: '#0F172A', roughness: 0.7 });
-        const hoseSeg = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.034, 10), hoseMat);
-        hoseSeg.position.set(-0.026, 0.052, -0.054);
-        hoseSeg.rotation.x = 0.65;
-        hoseSeg.rotation.z = -0.30;
-        this.visualBodyGroup.add(hoseSeg);
 
         // Build Multi-Cart Train & Tanks
         this.rebuildCarts(ConfigManager.current.cartCount || 1);
@@ -682,7 +689,7 @@ export class Rover {
         const spacing = THREE.MathUtils.clamp(ConfigManager.current.cartSpacing || 1.0, 0.6, 2.5);
 
         // Rover rear hitch in moon.group coordinates
-        this._tmpCartHitch.set(0, 0.022, -0.065);
+        this._tmpCartHitch.set(0, 0.022, -0.070);
         this.visualBodyGroup.localToWorld(this._tmpCartHitch);
         this.moon.group.worldToLocal(this._tmpCartHitch);
         const currentHitch = this._tmpCartHitch.clone();
@@ -943,9 +950,9 @@ export class Rover {
             targetSpeed = throttle * maxReverseSpeed; // Slower, deliberate reverse speed
             accelRate = cfg.accelRate * 0.60;       // Smooth, gentle reverse acceleration
         } else if (steer !== 0) {
-            // When pressing Left or Right alone without throttle, probe drives forward with enhanced momentum for larger, wider donuts
-            targetSpeed = Math.abs(steer) * maxForwardSpeed * 0.85;
-            accelRate = cfg.accelRate * 1.0;
+            // Reverted back as requested: subtle, gentle creep (or near stationary)
+            targetSpeed = Math.abs(steer) * maxForwardSpeed * 0.12;
+            accelRate = cfg.accelRate * 0.75;
         } else {
             targetSpeed = 0;
             accelRate = cfg.accelRate * 0.75;       // Natural rolling friction deceleration
@@ -961,10 +968,7 @@ export class Rover {
 
         if (effectiveTurn !== 0) {
             const isReversing = this.speed < -0.02;
-            const isSteerOnly = throttle === 0 && !isReversing;
-            // When turning without throttle (steering donut), maintain wider, larger circular arc
-            const donutTurnScale = isSteerOnly ? 0.72 : 1.0;
-            const turnRate = cfg.turnRate * (0.55 + 0.45 * Math.min(1.3, cfg.probeSpeed)) * (isReversing ? 0.78 : donutTurnScale);
+            const turnRate = cfg.turnRate * (0.55 + 0.45 * Math.min(1.3, cfg.probeSpeed)) * (isReversing ? 0.78 : 1.0);
             const dYaw = effectiveTurn * turnRate * dt;
             this.forward.applyAxisAngle(this.up, dYaw).normalize();
         }
@@ -1148,7 +1152,7 @@ export class Rover {
         const spacing = THREE.MathUtils.clamp(ConfigManager.current.cartSpacing || 1.0, 0.6, 2.5);
 
         // 1. Rover rear hitch in moon.group coordinates
-        this._tmpCartHitch.set(0, 0.022, -0.065);
+        this._tmpCartHitch.set(0, 0.022, -0.070);
         this.visualBodyGroup.localToWorld(this._tmpCartHitch);
         this.moon.group.worldToLocal(this._tmpCartHitch);
         this._tmpHitchPoint.copy(this._tmpCartHitch);
@@ -1173,15 +1177,15 @@ export class Rover {
                 this._tmpForward.copy(cart.forward);
             }
 
-            // JACKKNIFE ANGULAR CONSTRAINT:
-            // Prevents trailer from folding backwards (> 66 deg) through the towing vehicle when spinning in place
+            // ANTI-COLLISION & ANTI-JACKKNIFE CONSTRAINT:
+            // Tight 31 degree (~0.54 rad) max hitch articulation prevents trailer boxes and tanks from ever colliding
             const parentUp = this._tmpCartCenter.copy(cart.hitchPos).normalize();
             const parentLeft = this._tmpCartLeft.crossVectors(parentUp, parentForward).normalize();
 
             const dotFwd = this._tmpForward.dot(parentForward);
             const dotLeft = this._tmpForward.dot(parentLeft);
             const relAngle = Math.atan2(dotLeft, dotFwd);
-            const maxArticAngle = 1.15; // ~66 degrees maximum hitch articulation
+            const maxArticAngle = 0.54; // ~31 degrees maximum safe hitch articulation
 
             if (Math.abs(relAngle) > maxArticAngle) {
                 const clampedAngle = THREE.MathUtils.clamp(relAngle, -maxArticAngle, maxArticAngle);
@@ -1193,6 +1197,25 @@ export class Rover {
 
             // Pull axle towards hitch maintaining rigid drawbar distance
             cart.axlePos.copy(cart.hitchPos).addScaledVector(this._tmpForward, -axleDist);
+
+            // STRICT ANTI-COLLISION CONSTRAINT:
+            // Prevent adjacent trailer carts from ever colliding or overlapping during tight spins
+            if (i > 0) {
+                const prevCart = this.trailerCarts[i - 1];
+                const minAxleDist = (0.070 * spacing) * invMoonScale;
+                const dBetween = cart.axlePos.distanceTo(prevCart.axlePos);
+                if (dBetween < minAxleDist && dBetween > 0.0001) {
+                    this._tmpDiff.subVectors(cart.axlePos, prevCart.axlePos).normalize();
+                    cart.axlePos.copy(prevCart.axlePos).addScaledVector(this._tmpDiff, minAxleDist);
+                }
+            } else {
+                const minRoverDist = 0.086 * invMoonScale;
+                const dRover = cart.axlePos.distanceTo(this.group.position);
+                if (dRover < minRoverDist && dRover > 0.0001) {
+                    this._tmpDiff.subVectors(cart.axlePos, this.group.position).normalize();
+                    cart.axlePos.copy(this.group.position).addScaledVector(this._tmpDiff, minRoverDist);
+                }
+            }
 
             // Project axle directly onto lunar ground terrain (Anti-Nembus 100%)
             const u = this._tmpSlopeNormal.copy(cart.axlePos).normalize();
