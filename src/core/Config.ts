@@ -1,5 +1,26 @@
+export interface ProbeColorPreset {
+    id: string;
+    label: string;
+    body: string;
+    dark: string;
+}
+
+export const PROBE_COLOR_PRESETS: ProbeColorPreset[] = [
+    { id: 'yellow', label: 'Kuning Klasik', body: '#FACC15', dark: '#EAB308' },
+    { id: 'coral',  label: 'Oranye Koral',  body: '#FB923C', dark: '#EA580C' },
+    { id: 'red',    label: 'Merah Misi',    body: '#F87171', dark: '#DC2626' },
+    { id: 'pink',   label: 'Pink Kosmik',   body: '#F472B6', dark: '#DB2777' },
+    { id: 'purple', label: 'Ungu Nebula',   body: '#A78BFA', dark: '#7C3AED' },
+    { id: 'blue',   label: 'Biru Orbit',    body: '#60A5FA', dark: '#2563EB' },
+    { id: 'cyan',   label: 'Biru Es',       body: '#22D3EE', dark: '#0891B2' },
+    { id: 'mint',   label: 'Hijau Mint',    body: '#34D399', dark: '#059669' },
+    { id: 'white',  label: 'Putih Lunar',   body: '#F1F5F9', dark: '#CBD5E1' },
+    { id: 'slate',  label: 'Abu Titanium',  body: '#94A3B8', dark: '#64748B' }
+];
+
 export interface GameConfig {
     // 1. Probe & Sweeper
+    probeColor: string;
     probeSpeed: number;
     accelRate: number;
     turnRate: number;
@@ -9,6 +30,7 @@ export interface GameConfig {
     suspensionRoll: number;
     trailsEnabled: boolean;
     trailFadeDuration: number;
+    dustParticleRate: number;
 
     // 2. Camera (Dedicated Tab)
     camDistance: number;
@@ -50,7 +72,8 @@ export interface GameConfig {
 // User-chosen default settings from test tuning
 export const DEFAULT_CONFIG: GameConfig = {
     // Probe
-    probeSpeed: 0.90,
+    probeColor: 'yellow',
+    probeSpeed: 0.80,
     accelRate: 5.50,
     turnRate: 2.80,
     sweeperWidth: 0.20,
@@ -58,7 +81,8 @@ export const DEFAULT_CONFIG: GameConfig = {
     suspensionPitch: 1.00,
     suspensionRoll: 1.00,
     trailsEnabled: true,
-    trailFadeDuration: 4.50,
+    trailFadeDuration: 8.50,
+    dustParticleRate: 1.00,
 
     // Camera
     camDistance: 1.85,

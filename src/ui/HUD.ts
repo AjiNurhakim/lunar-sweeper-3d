@@ -1,9 +1,10 @@
 import { Moon } from '../entities/Moon';
-import { Rover } from '../entities/Rover';
+import { Rover, DUST_TIER_COLORS } from '../entities/Rover';
 import { SweeperSystem } from '../systems/SweeperSystem';
 import { SoundManager } from '../audio/SoundManager';
 import { CameraController } from '../core/CameraController';
-import { ConfigManager } from '../core/Config';
+import { ConfigManager, PROBE_COLOR_PRESETS } from '../core/Config';
+import { EconomySystem } from '../systems/EconomySystem';
 
 export class HUD {
     private moon: Moon;
@@ -11,6 +12,7 @@ export class HUD {
     private sweeper: SweeperSystem;
     private sound: SoundManager;
     private cameraCtrl: CameraController;
+    public economy?: EconomySystem;
 
     // Elements
     private cleanPctEl = document.getElementById('hud-clean-pct');
@@ -42,6 +44,8 @@ export class HUD {
     private valSuspRoll = document.getElementById('val-susp-roll');
     private inpTrailFade = document.getElementById('inp-trail-fade') as HTMLInputElement | null;
     private valTrailFade = document.getElementById('val-trail-fade');
+    private inpDustParticles = document.getElementById('inp-dust-particles') as HTMLInputElement | null;
+    private valDustParticles = document.getElementById('val-dust-particles');
 
     // Camera sliders
     private inpCamDist = document.getElementById('inp-cam-dist') as HTMLInputElement | null;
@@ -105,12 +109,22 @@ export class HUD {
     private iconSoundEl = document.getElementById('icon-sound');
     private txtJsonPreview = document.getElementById('txt-json-preview') as HTMLTextAreaElement | null;
 
+    // Base Actions Bar
+    private baseActionsBarEl = document.getElementById('base-actions-bar');
+    private btnBaseShop = document.getElementById('btn-base-shop') as HTMLButtonElement | null;
+    private btnNextMoon = document.getElementById('btn-next-moon') as HTMLButtonElement | null;
+
     private toastTimer: number | null = null;
     private victoryShown = false;
 
     // Callbacks
+    public onNextLevel?: () => void;
+    public onBaseNextMoon?: () => void;
+    public onBaseShop?: () => void;
     public onRandomMoon?: () => void;
+    public onTriggerMeteor?: () => void;
     public onSpacePresetChange?: (preset: string) => void;
+    public onMoonScaleChange?: () => void;
 
     constructor(
         moon: Moon,
@@ -127,6 +141,7 @@ export class HUD {
 
         this.tabBtns = document.querySelectorAll('.tab-btn');
         this.tabPanes = {
+            upgrade: document.getElementById('tab-upgrade'),
             probe: document.getElementById('tab-probe'),
             camera: document.getElementById('tab-camera'),
             moon: document.getElementById('tab-moon'),
@@ -190,11 +205,53 @@ export class HUD {
             if (this.onRandomMoon) this.onRandomMoon();
         };
 
+        const triggerNextLevel = () => {
+            this.victoryShown = false;
+            this.victoryBannerEl?.classList.add('hidden');
+            if (this.onNextLevel) {
+                this.onNextLevel();
+            } else if (this.onRandomMoon) {
+                this.onRandomMoon();
+            }
+        };
+
         document.getElementById('btn-random-moon')?.addEventListener('click', triggerRandom);
+        document.getElementById('btn-test-meteor')?.addEventListener('click', () => {
+            this.onTriggerMeteor?.();
+        });
         document.getElementById('btn-random-moon-tab')?.addEventListener('click', triggerRandom);
-        document.getElementById('btn-victory-next')?.addEventListener('click', triggerRandom);
+        document.getElementById('btn-victory-next')?.addEventListener('click', triggerNextLevel);
+        this.btnNextMoon?.addEventListener('click', () => {
+            this.onBaseNextMoon?.();
+        });
+        this.btnBaseShop?.addEventListener('click', () => {
+            this.onBaseShop?.();
+        });
         document.getElementById('btn-close-victory')?.addEventListener('click', () => {
             this.victoryBannerEl?.classList.add('hidden');
+        });
+
+        // Upgrade Shop Buttons
+        document.getElementById('btn-upgrade-power')?.addEventListener('click', () => {
+            if (this.economy?.buyPowerUpgrade()) {
+                this.showToast(`⚡ Power Sikat di-upgrade ke Lv. ${this.economy.powerLevel}!`);
+            } else {
+                this.showToast('Koin tidak cukup untuk upgrade Power Sikat!');
+            }
+        });
+        document.getElementById('btn-upgrade-width')?.addEventListener('click', () => {
+            if (this.economy?.buyWidthUpgrade()) {
+                this.showToast(`↔️ Lebar Sikat di-upgrade ke Lv. ${this.economy.widthLevel}!`);
+            } else {
+                this.showToast('Koin tidak cukup untuk upgrade Lebar Sikat!');
+            }
+        });
+        document.getElementById('btn-upgrade-tank')?.addEventListener('click', () => {
+            if (this.economy?.buyTankUpgrade()) {
+                this.showToast(`🛢️ Kapasitas Tangki di-upgrade ke Lv. ${this.economy.tankLevel}!`);
+            } else {
+                this.showToast('Koin tidak cukup untuk upgrade Kapasitas Tangki!');
+            }
         });
 
         // 1. Probe & Sweeper Sliders
@@ -228,6 +285,7 @@ export class HUD {
             ConfigManager.current.sweeperWidth = val;
             ConfigManager.saveToStorage();
             this.rover.applyConfig();
+            this.economy?.applyUpgradesToRover();
             if (this.valWidth) this.valWidth.textContent = val.toFixed(2);
             this.updateJsonPreview();
         });
@@ -237,6 +295,7 @@ export class HUD {
             ConfigManager.current.brushPower = val;
             ConfigManager.saveToStorage();
             this.rover.applyConfig();
+            this.economy?.applyUpgradesToRover();
             if (this.valPower) this.valPower.textContent = `${Math.round(val * 100)}%`;
             this.updateJsonPreview();
         });
@@ -264,6 +323,36 @@ export class HUD {
             if (this.valTrailFade) this.valTrailFade.textContent = `${val.toFixed(1)}s`;
             this.updateJsonPreview();
         });
+
+        this.inpDustParticles?.addEventListener('input', (e) => {
+            const val = parseFloat((e.target as HTMLInputElement).value);
+            ConfigManager.current.dustParticleRate = val;
+            ConfigManager.saveToStorage();
+            if (this.valDustParticles) this.valDustParticles.textContent = `${val.toFixed(1)}x`;
+            this.updateJsonPreview();
+        });
+
+        // Probe Color Swatches (10 presets)
+        const colorGrid = document.getElementById('probe-color-grid');
+        if (colorGrid) {
+            colorGrid.innerHTML = '';
+            PROBE_COLOR_PRESETS.forEach((preset) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'color-swatch';
+                btn.dataset.probeColor = preset.id;
+                btn.title = preset.label;
+                btn.style.background = `linear-gradient(135deg, ${preset.body} 55%, ${preset.dark} 55%)`;
+                btn.addEventListener('click', () => {
+                    ConfigManager.current.probeColor = preset.id;
+                    ConfigManager.saveToStorage();
+                    this.rover.applyConfig();
+                    this.syncProbeColorUI();
+                    this.updateJsonPreview();
+                });
+                colorGrid.appendChild(btn);
+            });
+        }
 
         // 2. Camera Sliders
         this.inpCamDist?.addEventListener('input', (e) => {
@@ -325,14 +414,18 @@ export class HUD {
         });
 
         // 3. Moon Sliders
+        let scaleDebounceTimer: number | undefined;
         this.inpMoonScale?.addEventListener('input', (e) => {
             const val = parseFloat((e.target as HTMLInputElement).value);
             ConfigManager.current.moonScale = val;
             ConfigManager.saveToStorage();
-            this.moon.applyShaderConfig();
-            this.rover.applyConfig();
             if (this.valMoonScale) this.valMoonScale.textContent = `${val.toFixed(2)}x`;
             this.updateJsonPreview();
+
+            if (scaleDebounceTimer) clearTimeout(scaleDebounceTimer);
+            scaleDebounceTimer = window.setTimeout(() => {
+                if (this.onMoonScaleChange) this.onMoonScaleChange();
+            }, 80);
         });
 
         this.inpDirtHeight?.addEventListener('input', (e) => {
@@ -474,6 +567,7 @@ export class HUD {
             ConfigManager.current.tankCapacity = val;
             ConfigManager.saveToStorage();
             this.rover.applyConfig();
+            this.economy?.applyUpgradesToRover();
             if (this.valTankCapacity) this.valTankCapacity.textContent = Math.round(val).toString();
             this.updateJsonPreview();
         });
@@ -675,10 +769,23 @@ export class HUD {
         });
     }
 
+    private syncProbeColorUI(): void {
+        const activeId = ConfigManager.current.probeColor || 'yellow';
+        const preset = PROBE_COLOR_PRESETS.find((p) => p.id === activeId) || PROBE_COLOR_PRESETS[0];
+        const valColor = document.getElementById('val-probe-color');
+        if (valColor) valColor.textContent = preset.label;
+
+        const colorGrid = document.getElementById('probe-color-grid');
+        colorGrid?.querySelectorAll<HTMLButtonElement>('.color-swatch').forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.probeColor === preset.id);
+        });
+    }
+
     public syncAllUIFromConfig(): void {
         const cfg = ConfigManager.current;
 
         // Probe
+        this.syncProbeColorUI();
         if (this.inpSpeed) this.inpSpeed.value = cfg.probeSpeed.toString();
         if (this.valSpeed) this.valSpeed.textContent = `${cfg.probeSpeed.toFixed(2)}x`;
         if (this.inpAccel) this.inpAccel.value = cfg.accelRate.toString();
@@ -695,6 +802,9 @@ export class HUD {
         if (this.valSuspRoll) this.valSuspRoll.textContent = `${cfg.suspensionRoll.toFixed(2)}x`;
         if (this.inpTrailFade) this.inpTrailFade.value = (cfg.trailFadeDuration || 4.5).toString();
         if (this.valTrailFade) this.valTrailFade.textContent = `${(cfg.trailFadeDuration || 4.5).toFixed(1)}s`;
+        const particleRate = cfg.dustParticleRate ?? 1.0;
+        if (this.inpDustParticles) this.inpDustParticles.value = particleRate.toString();
+        if (this.valDustParticles) this.valDustParticles.textContent = `${particleRate.toFixed(1)}x`;
 
         // Camera
         if (this.inpCamDist) this.inpCamDist.value = cfg.camDistance.toString();
@@ -795,7 +905,7 @@ export class HUD {
 
     public dumpVacuumTank(): void {
         if (this.rover.stats.currentDust > 0) {
-            this.rover.stats.currentDust = 0;
+            this.rover.setDust(0);
             this.sound.playDepositWhoosh();
             this.showToast('Tangki vakum dikosongkan.');
         } else {
@@ -803,7 +913,23 @@ export class HUD {
         }
     }
 
+    public updateBaseActions(isAtBase: boolean, isNextMoonUnlocked: boolean): void {
+        if (!this.baseActionsBarEl) return;
+        this.baseActionsBarEl.classList.toggle('hidden', !isAtBase);
+        if (this.btnNextMoon) {
+            this.btnNextMoon.disabled = !isNextMoonUnlocked;
+            this.btnNextMoon.classList.toggle('locked', !isNextMoonUnlocked);
+            this.btnNextMoon.textContent = isNextMoonUnlocked ? '🚀 Next Moon' : '🔒 Next Moon';
+        }
+    }
+
+    private lastHudUpdate = 0;
     public update(cleanPct: number): void {
+        const now = performance.now();
+        // Throttle DOM tree mutations to ~22 Hz to prevent layout thrashing
+        if (now - this.lastHudUpdate < 45 && cleanPct < 98.0) return;
+        this.lastHudUpdate = now;
+
         if (this.cleanPctEl) {
             this.cleanPctEl.textContent = `${cleanPct.toFixed(1)}%`;
         }
@@ -811,20 +937,65 @@ export class HUD {
             this.cleanBarEl.style.width = `${cleanPct.toFixed(1)}%`;
         }
 
+        const cur = Math.floor(this.rover.stats.currentDust);
+        const cap = this.rover.stats.tankCapacity;
+
         if (this.tankValEl) {
-            const cur = Math.floor(this.rover.stats.currentDust);
-            const cap = this.rover.stats.tankCapacity;
             if (cur >= cap) {
                 this.tankValEl.textContent = `${cap} / ${cap} kg (PENUH!)`;
-                this.tankValEl.className = 'value yellow-text font-bold';
+                this.tankValEl.className = 'value font-bold';
+                this.tankValEl.style.color = '#FACC15';
             } else {
                 this.tankValEl.textContent = `${cur} / ${cap} kg`;
-                this.tankValEl.className = 'value cyan-text';
+                this.tankValEl.className = 'value';
+                this.tankValEl.style.color = cur > 0 ? '#E2E8F0' : '#38BDF8';
             }
         }
         if (this.tankBarEl) {
             const tankPct = Math.min(100, (this.rover.stats.currentDust / this.rover.stats.tankCapacity) * 100);
             this.tankBarEl.style.width = `${tankPct.toFixed(1)}%`;
+
+            // Calculate total dust per tier across all carts
+            let t1Total = 0, t2Total = 0, t3Total = 0;
+            for (const cart of this.rover.trailerCarts) {
+                t1Total += cart.tier1Dust || 0;
+                t2Total += cart.tier2Dust || 0;
+                t3Total += cart.tier3Dust || 0;
+            }
+            const grandTotal = t1Total + t2Total + t3Total;
+
+            if (grandTotal > 0.001) {
+                const activeLayers: { color: string; frac: number }[] = [];
+                const order = this.rover.trailerCarts[0]?.layerOrder?.length > 0
+                    ? this.rover.trailerCarts[0].layerOrder
+                    : [1, 2, 3];
+
+                for (const t of order) {
+                    const amt = t === 1 ? t1Total : (t === 2 ? t2Total : t3Total);
+                    if (amt > 0.0001) {
+                        const colHex = '#' + (DUST_TIER_COLORS[t] || DUST_TIER_COLORS[1]).getHexString();
+                        activeLayers.push({ color: colHex, frac: amt / grandTotal });
+                    }
+                }
+
+                if (activeLayers.length === 1) {
+                    this.tankBarEl.style.background = activeLayers[0].color;
+                } else if (activeLayers.length > 1) {
+                    let gradStr = 'linear-gradient(to right';
+                    let cum = 0;
+                    for (const layer of activeLayers) {
+                        const startPct = (cum * 100).toFixed(1);
+                        cum += layer.frac;
+                        const endPct = (cum * 100).toFixed(1);
+                        gradStr += `, ${layer.color} ${startPct}%, ${layer.color} ${endPct}%`;
+                    }
+                    gradStr += ')';
+                    this.tankBarEl.style.background = gradStr;
+                }
+            } else {
+                this.tankBarEl.style.background = '#' + DUST_TIER_COLORS[1].getHexString();
+            }
+
             if (tankPct >= 99.5) {
                 this.tankBarEl.classList.add('pulse-tank');
             } else {
@@ -840,6 +1011,52 @@ export class HUD {
         if (cleanPct >= 98.0 && !this.victoryShown) {
             this.victoryShown = true;
             this.victoryBannerEl?.classList.remove('hidden');
+            const level = this.economy ? this.economy.moonLevel : 1;
+            const titleEl = document.getElementById('victory-title');
+            const descEl = document.getElementById('victory-desc');
+            const nextBtn = document.getElementById('btn-victory-next');
+            if (titleEl) titleEl.textContent = `LEVEL ${level} SELESAI!`;
+            if (descEl) descEl.textContent = `Bulan ${this.moon.currentPalette.name} berhasil disapu bersih! Seluruh debu telah disetor ke roket.`;
+            if (nextBtn) nextBtn.textContent = `Lanjut ke Level ${level + 1}`;
+        }
+    }
+
+    public setEconomy(economy: EconomySystem): void {
+        this.economy = economy;
+        this.economy.onCoinsChanged = (coins) => {
+            const coinsEl = document.getElementById('hud-coins-val');
+            if (coinsEl) coinsEl.textContent = coins.toString();
+            this.updateUpgradeUI();
+        };
+        this.economy.onUpgraded = () => {
+            this.updateUpgradeUI();
+        };
+        this.updateUpgradeUI();
+    }
+
+    public updateUpgradeUI(): void {
+        if (!this.economy) return;
+        const coinsEl = document.getElementById('hud-coins-val');
+        if (coinsEl) coinsEl.textContent = this.economy.coins.toString();
+
+        const pLevel = document.getElementById('val-power-level');
+        const pCost = document.getElementById('val-power-cost');
+        const wLevel = document.getElementById('val-width-level');
+        const wCost = document.getElementById('val-width-cost');
+        const tLevel = document.getElementById('val-tank-level');
+        const tCost = document.getElementById('val-tank-cost');
+
+        if (pLevel) pLevel.textContent = `Lv. ${this.economy.powerLevel}`;
+        if (pCost) pCost.textContent = this.economy.getPowerCost().toString();
+        if (wLevel) wLevel.textContent = `Lv. ${this.economy.widthLevel}`;
+        if (wCost) wCost.textContent = this.economy.getWidthCost().toString();
+        if (tLevel) tLevel.textContent = `Lv. ${this.economy.tankLevel}`;
+        if (tCost) tCost.textContent = this.economy.getTankCost().toString();
+    }
+
+    public updateLevelBadge(level: number, name: string): void {
+        if (this.moonBadgeEl) {
+            this.moonBadgeEl.textContent = `Level ${level} • ${name}`;
         }
     }
 

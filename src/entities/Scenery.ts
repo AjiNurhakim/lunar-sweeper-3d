@@ -8,6 +8,7 @@ export interface SpacePresetInfo {
 }
 
 export const SPACE_PRESETS: SpacePresetInfo[] = [
+    { id: 'earth', name: 'Earthrise Horizon', description: 'Planet Bumi biru dengan benua, awan & halo atmosfer (Bulan Level 1)' },
     { id: 'void', name: 'Deep Space Voyager', description: 'Angkasa malam dalam dengan bintang berlian & planet berbatu' },
     { id: 'nebula', name: 'Violet Dream Nebula', description: 'Awan gas kosmik volumetrik ungu, magenta & cyan' },
     { id: 'sunset', name: 'Solar Horizon', description: 'Matahari raksasa keemasan dengan korona cahaya atmosfer' },
@@ -17,7 +18,11 @@ export const SPACE_PRESETS: SpacePresetInfo[] = [
     { id: 'supernova', name: 'Crimson Supernova', description: 'Sisa ledakan bintang merah marun & cincin gelombang kejut' },
     { id: 'blackhole', name: 'Gargantua Black Hole', description: 'Lubang hitam dengan piringan akresi cahaya emas berputar' },
     { id: 'asteroid', name: 'Asteroid Belt', description: 'Sabuk batuan angkasa melayang dalam orbit melengkung' },
-    { id: 'synthwave', name: 'Neon Synthwave', description: 'Matahari garis retro dengan sistem bintang biner pink-biru' }
+    { id: 'synthwave', name: 'Neon Synthwave', description: 'Matahari garis retro dengan sistem bintang biner pink-biru' },
+    { id: 'milkyway', name: 'Milky Way Core', description: 'Pita galaksi Bima Sakti keemasan dengan jutaan bintang' },
+    { id: 'golden_nebula', name: 'Golden Amber Nebula', description: 'Kabut kosmik keemasan hangat dengan bintang katai putih' },
+    { id: 'crystal_void', name: 'Crystal Void', description: 'Kristal kosmik bercahaya cyan & lavender melayang di angkasa' },
+    { id: 'cybergrid', name: 'Cyber Orbit', description: 'Orbit futuristik dengan cincin cahaya cyan & satelit geometris' }
 ];
 
 export class Scenery {
@@ -48,41 +53,50 @@ export class Scenery {
     }
 
     private initShootingStar(): void {
-        const geom = new THREE.CylinderGeometry(0.015, 0.08, 3.4, 4);
+        const geom = new THREE.CylinderGeometry(0.012, 0.10, 4.2, 5);
         geom.rotateX(Math.PI / 2); // Align forward along Z
         const mat = new THREE.MeshBasicMaterial({
-            color: '#FFFFFF',
+            color: '#E0F2FE',
             transparent: true,
             opacity: 0.0,
             depthWrite: false
         });
         this.shootingStarMesh = new THREE.Mesh(geom, mat);
         this.shootingStarMesh.visible = false;
+        this.shootingStarInterval = 5 + Math.random() * 6;
         this.group.add(this.shootingStarMesh);
     }
 
     public build(preset: string = 'void', seed: number = 7777): void {
         this.currentPreset = preset;
 
-        // Clean up old objects
+        // Clean up old objects (including nested groups)
         while (this.celestialGroup.children.length > 0) {
-            const child = this.celestialGroup.children[0] as THREE.Mesh;
-            if (child.geometry) child.geometry.dispose();
-            if (child.material) {
-                if (Array.isArray(child.material)) {
-                    child.material.forEach(m => m.dispose());
-                } else {
-                    child.material.dispose();
+            const child = this.celestialGroup.children[0];
+            child.traverse((obj) => {
+                const mesh = obj as THREE.Mesh;
+                if (mesh.geometry) mesh.geometry.dispose();
+                if (mesh.material) {
+                    if (Array.isArray(mesh.material)) {
+                        mesh.material.forEach(m => m.dispose());
+                    } else {
+                        mesh.material.dispose();
+                    }
                 }
-            }
+            });
             this.celestialGroup.remove(child);
         }
 
         const rand = createPRNG(seed);
 
-        // Helper 1: Add low-poly diamond stars (Octahedrons)
+        // Helper 1: Add low-poly diamond stars (InstancedMesh = 1 draw call!)
         const addStars = (baseCount: number, rMin: number, rMax: number, palette: string[], sMin = 0.06, sMax = 0.22) => {
             const starGeom = new THREE.OctahedronGeometry(1, 0);
+            const starMat = new THREE.MeshBasicMaterial({ color: '#FFFFFF' });
+            const instanced = new THREE.InstancedMesh(starGeom, starMat, baseCount);
+            const dummy = new THREE.Object3D();
+            const color = new THREE.Color();
+
             for (let i = 0; i < baseCount; i++) {
                 const u = rand();
                 const v = rand();
@@ -90,20 +104,25 @@ export class Scenery {
                 const phi = Math.acos(2 * v - 1);
                 const r = rMin + rand() * (rMax - rMin);
 
-                const x = r * Math.sin(phi) * Math.cos(theta);
-                const y = r * Math.sin(phi) * Math.sin(theta);
-                const z = r * Math.cos(phi);
-
-                const colorHex = palette[Math.floor(rand() * palette.length)];
-                const mat = new THREE.MeshBasicMaterial({ color: colorHex });
-                const star = new THREE.Mesh(starGeom, mat);
-                star.position.set(x, y, z);
+                dummy.position.set(
+                    r * Math.sin(phi) * Math.cos(theta),
+                    r * Math.sin(phi) * Math.sin(theta),
+                    r * Math.cos(phi)
+                );
 
                 const s = sMin + Math.pow(rand(), 2.2) * (sMax - sMin);
-                star.scale.setScalar(s);
-                star.rotation.set(rand() * 3, rand() * 3, rand() * 3);
-                this.celestialGroup.add(star);
+                dummy.scale.setScalar(s);
+                dummy.rotation.set(rand() * 3, rand() * 3, rand() * 3);
+                dummy.updateMatrix();
+                instanced.setMatrixAt(i, dummy.matrix);
+
+                color.set(palette[Math.floor(rand() * palette.length)]);
+                instanced.setColorAt(i, color);
             }
+
+            instanced.instanceMatrix.needsUpdate = true;
+            if (instanced.instanceColor) instanced.instanceColor.needsUpdate = true;
+            this.celestialGroup.add(instanced);
         };
 
         // Helper 2: Add volumetric translucent nebula clouds
@@ -370,7 +389,7 @@ export class Scenery {
             }
 
         // 10. NEON SYNTHWAVE (Retro Cosmos)
-        } else {
+        } else if (preset === 'synthwave') {
             this.scene.background = new THREE.Color('#110722');
             addStars(280, 28, 58, ['#F472B6', '#38BDF8', '#C084FC', '#FDE047'], 0.07, 0.24);
 
@@ -410,6 +429,150 @@ export class Scenery {
             );
             starPink.position.set(23.8, 12.2, -32);
             this.celestialGroup.add(starPink);
+
+        // 11. EARTHRISE HORIZON (Level 1 Moon Default — Stylized Low-Poly Earth)
+        } else if (preset === 'earth') {
+            this.scene.background = new THREE.Color('#070B14');
+            addStars(280, 28, 58, ['#FFFFFF', '#BAE6FD', '#E2E8F0', '#FDE68A'], 0.06, 0.22);
+
+            const earthGroup = new THREE.Group();
+            earthGroup.position.set(-12, -21.0, 34);
+
+            // Ocean sphere
+            const earthOcean = new THREE.Mesh(
+                new THREE.IcosahedronGeometry(4.2, 3),
+                new THREE.MeshBasicMaterial({ color: '#2563EB' })
+            );
+            earthGroup.add(earthOcean);
+
+            // Low-poly continents (facing -Z toward the camera)
+            const continentData: { dir: [number, number, number]; scale: [number, number, number]; col: string }[] = [
+                { dir: [0.45, 0.35, -0.82], scale: [1.55, 1.15, 0.85], col: '#22C55E' },
+                { dir: [-0.55, 0.25, -0.79], scale: [1.35, 1.50, 0.80], col: '#16A34A' },
+                { dir: [0.15, -0.45, -0.88], scale: [1.20, 0.95, 0.75], col: '#4ADE80' },
+                { dir: [0.85, 0.10, -0.52], scale: [1.10, 1.30, 0.80], col: '#22C55E' },
+                { dir: [-0.20, 0.88, -0.42], scale: [1.65, 0.55, 1.35], col: '#F8FAFC' }, // North polar cap
+                { dir: [0.10, -0.92, -0.38], scale: [1.55, 0.50, 1.25], col: '#F8FAFC' }  // South polar cap
+            ];
+            for (const c of continentData) {
+                const blob = new THREE.Mesh(
+                    new THREE.IcosahedronGeometry(1.0, 1),
+                    new THREE.MeshBasicMaterial({ color: c.col })
+                );
+                const d = new THREE.Vector3(...c.dir).normalize();
+                blob.position.copy(d).multiplyScalar(3.65);
+                blob.lookAt(d.clone().multiplyScalar(10));
+                blob.scale.set(...c.scale);
+                earthGroup.add(blob);
+            }
+
+            // Stylized low-poly cloud puffs hovering around Earth
+            const cloudMat = new THREE.MeshBasicMaterial({ color: '#FFFFFF', transparent: true, opacity: 0.78 });
+            for (let i = 0; i < 8; i++) {
+                const ang = (i / 8) * Math.PI * 2 + 0.4;
+                const lat = (rand() - 0.5) * 1.1;
+                const cd = new THREE.Vector3(
+                    Math.cos(lat) * Math.cos(ang),
+                    Math.sin(lat),
+                    Math.cos(lat) * Math.sin(ang)
+                ).normalize();
+                const cloud = new THREE.Mesh(new THREE.IcosahedronGeometry(0.62 + rand() * 0.35, 1), cloudMat);
+                cloud.position.copy(cd).multiplyScalar(4.32);
+                cloud.scale.set(1.4, 0.55, 1.1);
+                cloud.lookAt(cd.clone().multiplyScalar(10));
+                earthGroup.add(cloud);
+            }
+
+            // Soft sky-blue atmospheric glow halo
+            const earthHalo = new THREE.Mesh(
+                new THREE.SphereGeometry(4.78, 28, 28),
+                new THREE.MeshBasicMaterial({ color: '#38BDF8', transparent: true, opacity: 0.16, depthWrite: false })
+            );
+            earthGroup.add(earthHalo);
+            this.celestialGroup.add(earthGroup);
+
+            // Distant warm sun glint
+            const distantSun = new THREE.Mesh(
+                new THREE.SphereGeometry(0.75, 16, 16),
+                new THREE.MeshBasicMaterial({ color: '#FEF08A' })
+            );
+            distantSun.position.set(24, 15, -42);
+            this.celestialGroup.add(distantSun);
+
+        // 12. MILKY WAY CORE
+        } else if (preset === 'milkyway') {
+            this.scene.background = new THREE.Color('#090818');
+            addStars(360, 26, 58, ['#FFFFFF', '#FDE68A', '#C4B5FD', '#7DD3FC', '#FBCFE8'], 0.06, 0.24);
+            addNebulaPuffs(12, ['#F59E0B', '#A855F7', '#38BDF8', '#EC4899'], 36, 7);
+
+        // 13. GOLDEN AMBER NEBULA
+        } else if (preset === 'golden_nebula') {
+            this.scene.background = new THREE.Color('#160D08');
+            addStars(260, 28, 58, ['#FEF3C7', '#FDE68A', '#FDBA74', '#FFFFFF'], 0.06, 0.22);
+            addNebulaPuffs(10, ['#D97706', '#F59E0B', '#B45309', '#FBBF24'], 36, 8);
+
+            const dwarfStar = new THREE.Mesh(
+                new THREE.SphereGeometry(1.4, 20, 20),
+                new THREE.MeshBasicMaterial({ color: '#FEF9C3' })
+            );
+            dwarfStar.position.set(18, 12, -36);
+            this.celestialGroup.add(dwarfStar);
+
+        // 14. CRYSTAL VOID
+        } else if (preset === 'crystal_void') {
+            this.scene.background = new THREE.Color('#0A0B1A');
+            addStars(260, 28, 58, ['#67E8F9', '#E879F9', '#FFFFFF', '#A5F3FC'], 0.06, 0.22);
+            const crystalColors = ['#22D3EE', '#C084FC', '#F472B6'];
+            const crystalGeom = new THREE.OctahedronGeometry(1.0, 0);
+            for (let i = 0; i < 18; i++) {
+                const ang = (i / 18) * Math.PI * 2 + rand() * 0.25;
+                const dist = 26 + rand() * 14;
+                const crystal = new THREE.Mesh(
+                    crystalGeom,
+                    new THREE.MeshBasicMaterial({ color: crystalColors[i % crystalColors.length] })
+                );
+                crystal.position.set(
+                    Math.cos(ang) * dist,
+                    (rand() - 0.25) * 18,
+                    Math.sin(ang) * dist
+                );
+                const s = 0.55 + rand() * 0.85;
+                crystal.scale.set(s * 0.45, s * 1.65, s * 0.45);
+                crystal.rotation.set(rand() * 3, rand() * 3, rand() * 3);
+                this.celestialGroup.add(crystal);
+            }
+
+        // 15. CYBER ORBIT
+        } else if (preset === 'cybergrid') {
+            this.scene.background = new THREE.Color('#060A16');
+            addStars(260, 28, 58, ['#22D3EE', '#38BDF8', '#FFFFFF', '#A78BFA'], 0.06, 0.20);
+
+            const cyberGroup = new THREE.Group();
+            cyberGroup.position.set(19, 10, -34);
+
+            const corePlanet = new THREE.Mesh(
+                new THREE.IcosahedronGeometry(2.6, 2),
+                new THREE.MeshBasicMaterial({ color: '#0F172A' })
+            );
+            cyberGroup.add(corePlanet);
+
+            const outerRing = new THREE.Mesh(
+                new THREE.TorusGeometry(4.4, 0.14, 8, 48),
+                new THREE.MeshBasicMaterial({ color: '#22D3EE' })
+            );
+            outerRing.rotation.x = Math.PI * 0.35;
+            outerRing.rotation.y = 0.4;
+            cyberGroup.add(outerRing);
+
+            const innerRing = new THREE.Mesh(
+                new THREE.TorusGeometry(3.4, 0.09, 8, 40),
+                new THREE.MeshBasicMaterial({ color: '#A855F7' })
+            );
+            innerRing.rotation.x = -Math.PI * 0.28;
+            innerRing.rotation.z = 0.5;
+            cyberGroup.add(innerRing);
+
+            this.celestialGroup.add(cyberGroup);
         }
     }
 
@@ -430,7 +593,7 @@ export class Scenery {
                 this.shootingStarActive = false;
                 this.shootingStarMesh.visible = false;
                 this.shootingStarTimer = 0;
-                this.shootingStarInterval = 12 + Math.random() * 16; // Next meteor in 12-28s
+                this.shootingStarInterval = 6 + Math.random() * 9; // Next meteor in 6-15s
             } else {
                 this.shootingStarMesh.position.addScaledVector(this.shootingStarVelocity, dt);
                 const alpha = Math.sin(t * Math.PI); // Smooth fade in and out

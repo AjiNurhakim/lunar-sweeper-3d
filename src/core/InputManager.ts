@@ -22,6 +22,21 @@ export class InputManager {
         this.setupTouch();
     }
 
+    public isTouchActive(): boolean {
+        return this.touchActive;
+    }
+
+    private resetInputs(): void {
+        this.forward = false;
+        this.backward = false;
+        this.left = false;
+        this.right = false;
+        this.touchActive = false;
+        if (this.joystickBaseEl) {
+            this.joystickBaseEl.classList.add('hidden');
+        }
+    }
+
     private setupKeyboard(): void {
         window.addEventListener('keydown', (e) => {
             const k = e.key.toLowerCase();
@@ -37,6 +52,11 @@ export class InputManager {
             if (k === 's' || e.key === 'ArrowDown') this.backward = false;
             if (k === 'a' || e.key === 'ArrowLeft') this.left = false;
             if (k === 'd' || e.key === 'ArrowRight') this.right = false;
+        });
+
+        window.addEventListener('blur', () => this.resetInputs());
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) this.resetInputs();
         });
     }
 

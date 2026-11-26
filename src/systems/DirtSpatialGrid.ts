@@ -9,6 +9,9 @@ export class DirtSpatialGrid {
     private numLat: number;
     private numLon: number;
     private bins: number[][]; // Array of vertex indices per bin
+    private seenTag: Int32Array = new Int32Array(0);
+    private queryId = 1;
+    private queryResults: number[] = [];
 
     constructor(numLat = 24, numLon = 48) {
         this.numLat = numLat;
@@ -17,6 +20,9 @@ export class DirtSpatialGrid {
     }
 
     public buildGrid(baseUnitPositions: Float32Array, numVerts: number): void {
+        this.seenTag = new Int32Array(numVerts);
+        this.queryId = 1;
+
         for (let b = 0; b < this.bins.length; b++) {
             this.bins[b].length = 0;
         }
@@ -43,7 +49,8 @@ export class DirtSpatialGrid {
     }
 
     /**
-     * Mengembalikan daftar indeks vertex yang berada di sekitar posisi bola (centerUnit) dalam radius tertentu
+     * Mengembalikan daftar indeks vertex yang berada di sekitar posisi bola (centerUnit) dalam radius tertentu.
+     * Menggunakan queryId timestamp stamp untuk zero-allocation O(1) deduplication (zero garbage collection hitch!).
      */
     public queryVerticesNear(centerUnit: THREE.Vector3, angularRadius: number): number[] {
         const clampedY = Math.max(-1, Math.min(1, centerUnit.y));
@@ -61,8 +68,16 @@ export class DirtSpatialGrid {
         const sinLat = Math.sin(centerTheta);
         const lonDelta = sinLat > 0.05 ? angularRadius / sinLat : Math.PI;
 
-        const results: number[] = [];
-        const seen = new Set<number>();
+        this.queryResults.length = 0;
+        this.queryId++;
+        if (this.queryId >= 2147483640) {
+            this.seenTag.fill(0);
+            this.queryId = 1;
+        }
+
+        const qId = this.queryId;
+        const tag = this.seenTag;
+        const results = this.queryResults;
 
         for (let lat = latMin; lat <= latMax; lat++) {
             if (lonDelta >= Math.PI) {
@@ -72,8 +87,8 @@ export class DirtSpatialGrid {
                     const bin = this.bins[binIdx];
                     for (let k = 0; k < bin.length; k++) {
                         const vIdx = bin[k];
-                        if (!seen.has(vIdx)) {
-                            seen.add(vIdx);
+                        if (tag[vIdx] !== qId) {
+                            tag[vIdx] = qId;
                             results.push(vIdx);
                         }
                     }
@@ -91,8 +106,8 @@ export class DirtSpatialGrid {
                     const bin = this.bins[binIdx];
                     for (let k = 0; k < bin.length; k++) {
                         const vIdx = bin[k];
-                        if (!seen.has(vIdx)) {
-                            seen.add(vIdx);
+                        if (tag[vIdx] !== qId) {
+                            tag[vIdx] = qId;
                             results.push(vIdx);
                         }
                     }

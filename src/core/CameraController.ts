@@ -31,6 +31,17 @@ export class CameraController {
     private _cinematicLookAt = new THREE.Vector3();
     private _cinematicCamUp = new THREE.Vector3(0, 1, 0);
 
+    // Scripted transition camera override (rocket launch & landing)
+    private transitionActive = false;
+    private transitionBlendOut = 0;
+    private _transCamPos = new THREE.Vector3();
+    private _transLookAt = new THREE.Vector3();
+    private _transCamUp = new THREE.Vector3(0, 1, 0);
+
+    // Subtle screenshake state
+    private shakeIntensity = 0;
+    private _shakeOffset = new THREE.Vector3();
+
     public smoothCamPos = new THREE.Vector3(0, 1.2, 3.2);
     public smoothLookAt = new THREE.Vector3(0, 0.3, 0.9);
     public smoothCamUp = new THREE.Vector3(0, 1, 0);
@@ -43,6 +54,8 @@ export class CameraController {
     private _desiredLookAt = new THREE.Vector3();
     private _desiredCamUp = new THREE.Vector3(0, 1, 0);
     private _camBackDir = new THREE.Vector3();
+    private _tmpCamDir = new THREE.Vector3();
+    private _tmpLookTarget = new THREE.Vector3();
 
     constructor(camera: THREE.PerspectiveCamera, rover: Rover, domElement: HTMLElement) {
         this.camera = camera;
@@ -73,10 +86,26 @@ export class CameraController {
         this.freeTheta = 0.35;
         this.freePhi = Math.PI / 2 - 0.2;
         this.smoothBackDir.copy(this.rover.forward).negate().normalize();
-        this.smoothSurfaceR = this.rover.moon.moonScale;
+
+        const u = this.rover.up;
+        const surfaceR = this.rover.moon.sampleCleanRadiusAt(u.x, u.y, u.z);
+        this.smoothSurfaceR = surfaceR;
         this.idleTimer = 0;
         this.cinematicBlend = 0;
         this.cinematicOrbitAngle = 0;
+
+        // Immediately snap camera to rover on moon surface (prevents camera starting inside large moons)
+        const camDist = this.radius * 0.72;
+        const camHeight = cfg.camHeight + this.pitchOffset * 1.15;
+        this.smoothCamPos.copy(u)
+            .multiplyScalar(surfaceR + camHeight)
+            .addScaledVector(this.smoothBackDir, camDist);
+        this.smoothLookAt.copy(u).multiplyScalar(surfaceR + 0.05);
+        this.smoothCamUp.copy(u);
+
+        this.camera.up.copy(this.smoothCamUp);
+        this.camera.position.copy(this.smoothCamPos);
+        this.camera.lookAt(this.smoothLookAt);
     }
 
     public resetIdle(): void {
@@ -127,7 +156,7 @@ export class CameraController {
 
         this.domElement.addEventListener('touchstart', (e) => {
             this.resetIdle();
-            if (e.touches.length === 1) {
+            if (e.touches.length === 1 && !ConfigManager.current.followCamera) {
                 this.isDragging = true;
                 this.prevX = e.touches[0].clientX;
                 this.prevY = e.touches[0].clientY;
@@ -142,19 +171,14 @@ export class CameraController {
 
         this.domElement.addEventListener('touchmove', (e) => {
             this.resetIdle();
-            if (e.touches.length === 1 && this.isDragging) {
+            if (e.touches.length === 1 && this.isDragging && !ConfigManager.current.followCamera) {
                 const dx = e.touches[0].clientX - this.prevX;
                 const dy = e.touches[0].clientY - this.prevY;
                 this.prevX = e.touches[0].clientX;
                 this.prevY = e.touches[0].clientY;
 
-                if (ConfigManager.current.followCamera) {
-                    this.yawOffset -= dx * 0.0085;
-                    this.pitchOffset = clamp(this.pitchOffset + dy * 0.0075, 0.10, 1.35);
-                } else {
-                    this.freeTheta -= dx * 0.0085;
-                    this.freePhi = clamp(this.freePhi - dy * 0.0085, 0.12, Math.PI - 0.12);
-                }
+                this.freeTheta -= dx * 0.0085;
+                this.freePhi = clamp(this.freePhi - dy * 0.0085, 0.12, Math.PI - 0.12);
             } else if (e.touches.length === 2 && this.pinchStartDist > 0) {
                 const dx = e.touches[0].clientX - e.touches[1].clientX;
                 const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -174,7 +198,57 @@ export class CameraController {
         window.addEventListener('keyup', () => this.resetIdle());
     }
 
+    public setTransitionCamera(pos: THREE.Vector3, lookAt: THREE.Vector3, up: THREE.Vector3, snap = false): void {
+        this.transitionActive = true;
+        this._transCamPos.copy(pos);
+        this._transLookAt.copy(lookAt);
+        this._transCamUp.copy(up).normalize();
+        if (snap) {
+            this.smoothCamPos.copy(this._transCamPos);
+            this.smoothLookAt.copy(this._transLookAt);
+            this.smoothCamUp.copy(this._transCamUp);
+        }
+    }
+
+    public clearTransitionCamera(): void {
+        this.transitionActive = false;
+        this.transitionBlendOut = 1.6;
+        this.yawOffset = 0;
+    }
+
+    public addScreenShake(intensity: number): void {
+        this.shakeIntensity = Math.min(0.08, Math.max(this.shakeIntensity, intensity));
+    }
+
+    private applyScreenShake(dt: number): void {
+        if (this.shakeIntensity <= 0.0003) {
+            this.shakeIntensity = 0;
+            return;
+        }
+        this._shakeOffset.set(
+            (Math.random() - 0.5) * 2 * this.shakeIntensity,
+            (Math.random() - 0.5) * 2 * this.shakeIntensity,
+            (Math.random() - 0.5) * 2 * this.shakeIntensity
+        );
+        this.camera.position.add(this._shakeOffset);
+        this.shakeIntensity *= Math.exp(-11 * dt);
+    }
+
     public update(dt: number): void {
+        if (this.transitionActive) {
+            const posLerp = 1 - Math.exp(-3.0 * dt);
+            const lookLerp = 1 - Math.exp(-4.5 * dt);
+            this.smoothCamPos.lerp(this._transCamPos, posLerp);
+            this.smoothLookAt.lerp(this._transLookAt, lookLerp);
+            this.smoothCamUp.lerp(this._transCamUp, posLerp).normalize();
+            this.enforceGroundClearance();
+            this.camera.up.copy(this.smoothCamUp);
+            this.camera.position.copy(this.smoothCamPos);
+            this.camera.lookAt(this.smoothLookAt);
+            this.applyScreenShake(dt);
+            return;
+        }
+
         const cfg = ConfigManager.current;
         const lerpFactor = 1 - Math.exp(-10 * dt);
         this.radius += (this.targetRadius - this.radius) * lerpFactor;
@@ -279,7 +353,7 @@ export class CameraController {
             }
 
             // Crater / Terrain bump filtering:
-            const actualR = this.rover.moon.sampleActualSurfaceRadiusAt(u.x, u.y, u.z) * scale;
+            const actualR = this.rover.moon.sampleCleanRadiusAt(u.x, u.y, u.z);
             if (cfg.comfortMode) {
                 // Smooth surface radius heavily absorbs crater vibrations
                 this.smoothSurfaceR += (actualR - this.smoothSurfaceR) * (1 - Math.exp(-3.5 * dt));
@@ -315,20 +389,32 @@ export class CameraController {
                 this._desiredCamUp.lerp(this._cinematicCamUp, s).normalize();
             }
 
-            const posSmoothRate = cfg.comfortMode ? Math.min(cfg.camSmoothPos, 6.5) : cfg.camSmoothPos;
-            const lookSmoothRate = cfg.comfortMode ? Math.min(cfg.camSmoothLook, 8.0) : cfg.camSmoothLook;
-            const upSmoothRate = cfg.comfortMode ? 4.5 : 10.0;
+            let posSmoothRate = cfg.comfortMode ? Math.min(cfg.camSmoothPos, 6.5) : cfg.camSmoothPos;
+            let lookSmoothRate = cfg.comfortMode ? Math.min(cfg.camSmoothLook, 8.0) : cfg.camSmoothLook;
+            let upSmoothRate = cfg.comfortMode ? 4.5 : 10.0;
+
+            if (this.transitionBlendOut > 0) {
+                this.transitionBlendOut = Math.max(0, this.transitionBlendOut - dt);
+                const blendT = 1 - this.transitionBlendOut / 1.6;
+                const smoothRamp = blendT * blendT * (3 - 2 * blendT);
+                posSmoothRate = THREE.MathUtils.lerp(1.8, posSmoothRate, smoothRamp);
+                lookSmoothRate = THREE.MathUtils.lerp(2.4, lookSmoothRate, smoothRamp);
+                upSmoothRate = THREE.MathUtils.lerp(2.0, upSmoothRate, smoothRamp);
+            }
 
             this.smoothCamPos.lerp(this._desiredCamPos, 1 - Math.exp(-posSmoothRate * dt));
             this.smoothLookAt.lerp(this._desiredLookAt, 1 - Math.exp(-lookSmoothRate * dt));
             this.smoothCamUp.lerp(this._desiredCamUp, 1 - Math.exp(-upSmoothRate * dt)).normalize();
 
+            this.enforceGroundClearance();
+
             this.camera.up.copy(this.smoothCamUp);
             this.camera.position.copy(this.smoothCamPos);
             this.camera.lookAt(this.smoothLookAt);
+            this.applyScreenShake(dt);
         } else {
             // Free orbit around center
-            const r = this.radius * scale;
+            const r = Math.max(scale + 0.45, this.radius * scale);
             this._desiredCamPos.set(
                 r * Math.sin(this.freePhi) * Math.sin(this.freeTheta),
                 r * Math.cos(this.freePhi),
@@ -336,10 +422,34 @@ export class CameraController {
             );
 
             this.smoothCamPos.lerp(this._desiredCamPos, lerpFactor);
-            this.smoothLookAt.lerp(new THREE.Vector3(0, 0, 0), lerpFactor);
+            this._tmpLookTarget.set(0, 0, 0);
+            this.smoothLookAt.lerp(this._tmpLookTarget, lerpFactor);
+
+            this.enforceGroundClearance();
 
             this.camera.position.copy(this.smoothCamPos);
             this.camera.lookAt(this.smoothLookAt);
+        }
+    }
+
+    /**
+     * Prevents the camera from ever clipping inside the moon sphere (especially on large moons
+     * where linear Cartesian lerp can cut chords through the curved surface).
+     */
+    private enforceGroundClearance(): void {
+        const dist = this.smoothCamPos.length();
+        if (dist < 0.0001) return;
+
+        this._tmpCamDir.copy(this.smoothCamPos).divideScalar(dist);
+        const surfaceR = this.rover.moon.sampleCleanRadiusAt(
+            this._tmpCamDir.x,
+            this._tmpCamDir.y,
+            this._tmpCamDir.z
+        ) + this.rover.moon.dirtHeight;
+        const minCamR = surfaceR + 0.25;
+
+        if (dist < minCamR) {
+            this.smoothCamPos.copy(this._tmpCamDir).multiplyScalar(minCamR);
         }
     }
 }

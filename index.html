@@ -23,7 +23,10 @@
                     <span class="indicator-dot yellow-dot"></span>
                     <span class="hud-title">LUNAR SWEEPER</span>
                 </div>
-                <span id="hud-moon-badge" class="badge">Seed #101 • Lavender</span>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    <span id="hud-coins-badge" class="badge" style="background: rgba(245, 158, 11, 0.22); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.45); font-weight: 700;">🪙 <span id="hud-coins-val">0</span></span>
+                    <span id="hud-moon-badge" class="badge">Level 1 • Bulan Klasik</span>
+                </div>
             </div>
 
             <div class="progress-wrap">
@@ -52,10 +55,13 @@
             <button id="btn-random-moon" class="btn btn-yellow-full mt-2">
                 Random Moon
             </button>
+            <button id="btn-test-meteor" class="btn btn-dark mt-2" style="width: 100%;">
+                ☄️ Trigger Meteor (Test)
+            </button>
         </header>
 
-        <!-- Top Right: Comprehensive Tabbed Settings & Game Feel Panel -->
-        <aside id="ui-tuning-panel" class="hud-card tuning-card">
+        <!-- Top Right: Comprehensive Tabbed Settings & Game Feel Panel (hidden) -->
+        <aside id="ui-tuning-panel" class="hud-card tuning-card hidden">
             <!-- Panel Header -->
             <div class="tuning-header">
                 <div class="hud-title-wrap">
@@ -68,17 +74,62 @@
             </div>
 
             <div id="tuning-body" class="tuning-body">
-                <!-- Tab Navigation (5 Tabs) -->
+                <!-- Tab Navigation -->
                 <nav class="settings-tabs">
-                    <button class="tab-btn active" data-tab="probe">Probe</button>
+                    <button class="tab-btn active" data-tab="upgrade">⚡ Upgrade</button>
+                    <button class="tab-btn" data-tab="probe">Probe</button>
                     <button class="tab-btn" data-tab="camera">Kamera</button>
                     <button class="tab-btn" data-tab="moon">Bulan</button>
                     <button class="tab-btn" data-tab="tank">Tangki</button>
                     <button class="tab-btn" data-tab="save">JSON</button>
                 </nav>
 
+                <!-- TAB UPGRADE SHOP -->
+                <div id="tab-upgrade" class="tab-pane active">
+                    <div style="background: rgba(15, 23, 42, 0.6); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 700; color: #F1F5F9;">⚡ Power Sikat</span>
+                            <span id="val-power-level" class="badge">Lv. 1</span>
+                        </div>
+                        <p style="font-size: 0.72rem; color: #94A3B8; margin: 4px 0 8px 0;">Menyapu debu lebih cepat & mengurangi efek lambat.</p>
+                        <button id="btn-upgrade-power" class="btn btn-yellow-full" style="padding: 6px 10px; font-size: 0.8rem;">
+                            Beli Upgrade (<span id="val-power-cost">100</span> Koin)
+                        </button>
+                    </div>
+
+                    <div style="background: rgba(15, 23, 42, 0.6); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); margin-top: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 700; color: #F1F5F9;">↔️ Lebar Sikat</span>
+                            <span id="val-width-level" class="badge">Lv. 1</span>
+                        </div>
+                        <p style="font-size: 0.72rem; color: #94A3B8; margin: 4px 0 8px 0;">Memperlebar diameter jangkauan sapuan rol sikat.</p>
+                        <button id="btn-upgrade-width" class="btn btn-yellow-full" style="padding: 6px 10px; font-size: 0.8rem;">
+                            Beli Upgrade (<span id="val-width-cost">150</span> Koin)
+                        </button>
+                    </div>
+
+                    <div style="background: rgba(15, 23, 42, 0.6); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); margin-top: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 700; color: #F1F5F9;">🛢️ Kapasitas Tangki</span>
+                            <span id="val-tank-level" class="badge">Lv. 1</span>
+                        </div>
+                        <p style="font-size: 0.72rem; color: #94A3B8; margin: 4px 0 8px 0;">Memperbesar daya tampung tangki stardust vakum.</p>
+                        <button id="btn-upgrade-tank" class="btn btn-yellow-full" style="padding: 6px 10px; font-size: 0.8rem;">
+                            Beli Upgrade (<span id="val-tank-cost">120</span> Koin)
+                        </button>
+                    </div>
+                </div>
+
                 <!-- TAB 1: PROBE & HANDLING -->
-                <div id="tab-probe" class="tab-pane active">
+                <div id="tab-probe" class="tab-pane hidden">
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Warna Probe</span>
+                            <span id="val-probe-color" class="tuning-val">Kuning Klasik</span>
+                        </div>
+                        <div id="probe-color-grid" class="color-swatch-grid"></div>
+                    </div>
+
                     <div class="tuning-row">
                         <div class="tuning-label-row">
                             <span>Kecepatan Probe</span>
@@ -141,6 +192,14 @@
                             <span id="val-trail-fade" class="tuning-val">4.5s</span>
                         </div>
                         <input id="inp-trail-fade" type="range" min="1.0" max="12.0" step="0.5" value="4.5" class="flat-slider">
+                    </div>
+
+                    <div class="tuning-row">
+                        <div class="tuning-label-row">
+                            <span>Jumlah Partikel Debu</span>
+                            <span id="val-dust-particles" class="tuning-val">1.0x</span>
+                        </div>
+                        <input id="inp-dust-particles" type="range" min="0.0" max="3.0" step="0.1" value="1.0" class="flat-slider">
                     </div>
 
                     <div class="tuning-grid-2 pt-1">
@@ -223,7 +282,7 @@
                             <span>Ukuran Bulan</span>
                             <span id="val-moon-scale" class="tuning-val">1.00x</span>
                         </div>
-                        <input id="inp-moon-scale" type="range" min="0.80" max="6.00" step="0.10" value="1.00" class="flat-slider">
+                        <input id="inp-moon-scale" type="range" min="0.60" max="3.00" step="0.05" value="1.00" class="flat-slider">
                     </div>
 
                     <div class="tuning-row">
@@ -265,6 +324,7 @@
                         </div>
                         <select id="sel-space-preset" class="flat-select">
                             <option value="auto">Acak Otomatis (Per Bulan)</option>
+                            <option value="earth">Earthrise Horizon (Bumi)</option>
                             <option value="void">Deep Space Voyager</option>
                             <option value="nebula">Violet Dream Nebula</option>
                             <option value="sunset">Solar Horizon (Matahari Emas)</option>
@@ -275,6 +335,10 @@
                             <option value="blackhole">Gargantua Black Hole</option>
                             <option value="asteroid">Sabuk Asteroid</option>
                             <option value="synthwave">Neon Synthwave</option>
+                            <option value="milkyway">Milky Way Core</option>
+                            <option value="golden_nebula">Golden Amber Nebula</option>
+                            <option value="crystal_void">Crystal Void</option>
+                            <option value="cybergrid">Cyber Orbit</option>
                         </select>
                     </div>
 
@@ -431,14 +495,24 @@
         <!-- Victory Banner saat >= 98% Bersih -->
         <div id="victory-banner" class="hud-card victory-card hidden">
             <div class="launch-header">
-                <span class="launch-badge">BULAN BERSIH SEMPURNA!</span>
+                <span id="victory-title" class="launch-badge">LEVEL 1 SELESAI!</span>
                 <button id="btn-close-victory" class="close-btn">×</button>
             </div>
-            <p class="launch-desc">
-                Seluruh lapisan kotoran berhasil disapu bersih! Buat bulan acak baru untuk sensasi berikutnya.
+            <p id="victory-desc" class="launch-desc">
+                Bulan berhasil disapu bersih! Seluruh debu telah terjual ke roket.
             </p>
             <button id="btn-victory-next" class="btn btn-primary">
-                Generate Bulan Baru
+                Lanjut ke Level 2
+            </button>
+        </div>
+
+        <!-- Base Actions Bar (Only visible when parked at Base / Rocket) -->
+        <div id="base-actions-bar" class="base-actions-bar hidden">
+            <button id="btn-base-shop" class="btn-base-action btn-base-shop" type="button">
+                🛒 Shop
+            </button>
+            <button id="btn-next-moon" class="btn-base-action btn-base-next" type="button">
+                🚀 Next Moon
             </button>
         </div>
 
@@ -452,6 +526,9 @@
         <!-- Toast Notifications -->
         <div id="toast" class="toast hidden">Notifikasi</div>
     </div>
+
+    <!-- Black Screen Fade for Moon Transition -->
+    <div id="moon-transition-fade" class="moon-transition-fade"></div>
 
     <!-- Main Entry Module -->
     <script type="module" src="./src/main.ts"></script>

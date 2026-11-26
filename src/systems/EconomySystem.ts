@@ -1,4 +1,5 @@
 import { Rover } from '../entities/Rover';
+import { ConfigManager } from '../core/Config';
 
 export interface SaveData {
     coins: number;
@@ -21,6 +22,8 @@ export class EconomySystem {
 
     private rover: Rover;
     private readonly SAVE_KEY = 'lunar_sweeper_save_v1';
+    private coinAccumulator = 0;
+    private lastSaveTime = 0;
 
     // Callbacks
     public onCoinsChanged?: (newCoins: number) => void;
@@ -97,24 +100,46 @@ export class EconomySystem {
     }
 
     public applyUpgradesToRover(): void {
-        this.rover.stats.sweeperPower = 1.0 + (this.powerLevel - 1) * 0.35;
-        this.rover.stats.sweeperWidth = 0.24 + (this.widthLevel - 1) * 0.04;
-        this.rover.stats.tankCapacity = 100 + (this.tankLevel - 1) * 75;
+        const cfg = ConfigManager.current;
+        const count = Math.max(1, Math.round(cfg.cartCount || 1));
+        const scale = Math.max(0.5, cfg.tankScale || 1.0);
+        const length = Math.max(0.5, cfg.tankLength || 1.0);
+
+        this.rover.stats.sweeperPower = cfg.brushPower + (this.powerLevel - 1) * 0.35;
+        this.rover.stats.sweeperWidth = cfg.sweeperWidth + (this.widthLevel - 1) * 0.04;
+        this.rover.stats.tankCapacity = Math.round((cfg.tankCapacity + (this.tankLevel - 1) * 75) * count * scale * length);
         this.rover.updateSweeperVisualWidth();
+    }
+
+    public addCoins(amount: number): void {
+        if (amount <= 0) return;
+        this.coins += Math.round(amount);
+        if (this.onCoinsChanged) this.onCoinsChanged(this.coins);
+        this.save();
     }
 
     public unloadDust(amount: number): number {
         if (this.rover.stats.currentDust <= 0) return 0;
 
+        const activeTier = this.rover.getActiveUnloadingTier();
         const unloaded = Math.min(this.rover.stats.currentDust, amount);
-        this.rover.stats.currentDust -= unloaded;
+        this.rover.removeDust(unloaded);
 
-        // 1 Dust = 1.5 Moon Coins on average
-        const coinGain = Math.ceil(unloaded * 1.5);
-        this.coins += coinGain;
+        // Tier-weighted coin rate (Tier 1 = 2, Tier 2 = 4, Tier 3 = 7 coins/kg), accumulated smoothly across frames
+        const tierMultiplier = activeTier === 3 ? 7.0 : (activeTier === 2 ? 4.0 : 2.0);
+        this.coinAccumulator += unloaded * tierMultiplier;
+        const wholeCoins = Math.floor(this.coinAccumulator);
+        if (wholeCoins > 0) {
+            this.coinAccumulator -= wholeCoins;
+            this.coins += wholeCoins;
+            if (this.onCoinsChanged) this.onCoinsChanged(this.coins);
+        }
 
-        if (this.onCoinsChanged) this.onCoinsChanged(this.coins);
-        this.save();
+        const now = performance.now();
+        if (this.rover.stats.currentDust <= 0.0001 || now - this.lastSaveTime > 1000) {
+            this.lastSaveTime = now;
+            this.save();
+        }
         return unloaded;
     }
 

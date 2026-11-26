@@ -2,6 +2,11 @@ import * as THREE from 'three';
 import { createPRNG, smoothstep } from '../core/MathUtils';
 import { DirtSpatialGrid } from '../systems/DirtSpatialGrid';
 import { ConfigManager } from '../core/Config';
+import { MOON_PALETTES, MoonPalette } from './MoonPalettes';
+import { attachOutline } from '../core/OutlineUtils';
+
+export { MOON_PALETTES };
+export type { MoonPalette };
 
 export interface Crater {
     cx: number;
@@ -11,285 +16,6 @@ export interface Crater {
     depth: number;
 }
 
-export interface MoonPalette {
-    name: string;
-    baseColor: string;
-    craterColor: string;
-    rimColor: string;
-    dirt1Color: string;
-    dirt2Color: string;
-    dirt3Color: string;
-    dirtHighlight: string;
-    bgPreset: string;
-}
-
-export const MOON_PALETTES: MoonPalette[] = [
-    {
-        name: 'Lavender',
-        baseColor: '#B8B5E6',
-        craterColor: '#A7A3DC',
-        rimColor: '#C8C5ED',
-        dirt1Color: '#6B6382',
-        dirt2Color: '#4F4765',
-        dirt3Color: '#2F2642',
-        dirtHighlight: '#8A80A6',
-        bgPreset: 'nebula'
-    },
-    {
-        name: 'Keju Emas',
-        baseColor: '#F5D061',
-        craterColor: '#E2BC4E',
-        rimColor: '#F9DC7F',
-        dirt1Color: '#7A674D',
-        dirt2Color: '#5C4B33',
-        dirt3Color: '#362A19',
-        dirtHighlight: '#9C8567',
-        bgPreset: 'sunset'
-    },
-    {
-        name: 'Mint Kosmik',
-        baseColor: '#7CE3C3',
-        craterColor: '#65CDAC',
-        rimColor: '#97EBCE',
-        dirt1Color: '#53706B',
-        dirt2Color: '#3B5450',
-        dirt3Color: '#1E3330',
-        dirtHighlight: '#74948E',
-        bgPreset: 'emerald'
-    },
-    {
-        name: 'Perak Bulan',
-        baseColor: '#DCE3EE',
-        craterColor: '#C2CDDD',
-        rimColor: '#E8EDF5',
-        dirt1Color: '#687282',
-        dirt2Color: '#4A5363',
-        dirt3Color: '#292F3B',
-        dirtHighlight: '#8B97AB',
-        bgPreset: 'void'
-    },
-    {
-        name: 'Berry Pastel',
-        baseColor: '#F59BB6',
-        craterColor: '#DE7E9A',
-        rimColor: '#FBB6C9',
-        dirt1Color: '#785567',
-        dirt2Color: '#5E3B4D',
-        dirt3Color: '#381C2B',
-        dirtHighlight: '#9C738A',
-        bgPreset: 'synthwave'
-    },
-    {
-        name: 'Langit Biru',
-        baseColor: '#8ECAE6',
-        craterColor: '#6FB5D6',
-        rimColor: '#A9DAF2',
-        dirt1Color: '#556A7A',
-        dirt2Color: '#3C4F5E',
-        dirt3Color: '#20303D',
-        dirtHighlight: '#768FA3',
-        bgPreset: 'aurora'
-    },
-    {
-        name: 'Crimson Mars',
-        baseColor: '#E06D53',
-        craterColor: '#C4543C',
-        rimColor: '#F08D75',
-        dirt1Color: '#6E3C32',
-        dirt2Color: '#4E261E',
-        dirt3Color: '#2F120B',
-        dirtHighlight: '#8E5044',
-        bgPreset: 'supernova'
-    },
-    {
-        name: 'Obsidian Shadow',
-        baseColor: '#3C404E',
-        craterColor: '#2D303C',
-        rimColor: '#525769',
-        dirt1Color: '#23252E',
-        dirt2Color: '#181A20',
-        dirt3Color: '#0E0F13',
-        dirtHighlight: '#5C6275',
-        bgPreset: 'blackhole'
-    },
-    {
-        name: 'Zamrud Tropis',
-        baseColor: '#48BF84',
-        craterColor: '#36A36E',
-        rimColor: '#6BD4A0',
-        dirt1Color: '#2D5943',
-        dirt2Color: '#1E3D2E',
-        dirt3Color: '#10241A',
-        dirtHighlight: '#3F785C',
-        bgPreset: 'emerald'
-    },
-    {
-        name: 'Sakura Blossom',
-        baseColor: '#F7A8B8',
-        craterColor: '#DE8B9C',
-        rimColor: '#FFC2CE',
-        dirt1Color: '#7A4D57',
-        dirt2Color: '#5C343D',
-        dirt3Color: '#381C22',
-        dirtHighlight: '#996370',
-        bgPreset: 'synthwave'
-    },
-    {
-        name: 'Glacial Arctica',
-        baseColor: '#E2F1F8',
-        craterColor: '#C5DFEC',
-        rimColor: '#F0F8FD',
-        dirt1Color: '#577180',
-        dirt2Color: '#3E5360',
-        dirt3Color: '#23323B',
-        dirtHighlight: '#7B9AA9',
-        bgPreset: 'comet'
-    },
-    {
-        name: 'Matahari Senja',
-        baseColor: '#F9844A',
-        craterColor: '#DE6B33',
-        rimColor: '#FFA372',
-        dirt1Color: '#78432C',
-        dirt2Color: '#582E1C',
-        dirt3Color: '#33170B',
-        dirtHighlight: '#9E5B3E',
-        bgPreset: 'sunset'
-    },
-    {
-        name: 'Samudra Dalam',
-        baseColor: '#4D7EA8',
-        craterColor: '#3B688F',
-        rimColor: '#6C9BC2',
-        dirt1Color: '#2C4357',
-        dirt2Color: '#1D2E3D',
-        dirt3Color: '#0E1720',
-        dirtHighlight: '#44627A',
-        bgPreset: 'void'
-    },
-    {
-        name: 'Amethyst Kristal',
-        baseColor: '#9D65C9',
-        craterColor: '#844EB0',
-        rimColor: '#B684DD',
-        dirt1Color: '#52346A',
-        dirt2Color: '#3A224D',
-        dirt3Color: '#20112D',
-        dirtHighlight: '#724D90',
-        bgPreset: 'nebula'
-    },
-    {
-        name: 'Matcha Moss',
-        baseColor: '#A3B18A',
-        craterColor: '#8C9A74',
-        rimColor: '#BDCCA4',
-        dirt1Color: '#515B44',
-        dirt2Color: '#394030',
-        dirt3Color: '#21261B',
-        dirtHighlight: '#6F7B5E',
-        bgPreset: 'emerald'
-    },
-    {
-        name: 'Tembaga Kuno',
-        baseColor: '#DDA15E',
-        craterColor: '#C48847',
-        rimColor: '#EDB87B',
-        dirt1Color: '#6B4D2F',
-        dirt2Color: '#4D341D',
-        dirt3Color: '#2B1C0D',
-        dirtHighlight: '#8E6741',
-        bgPreset: 'asteroid'
-    },
-    {
-        name: 'Neon Cyberpunk',
-        baseColor: '#795290',
-        craterColor: '#613C77',
-        rimColor: '#966EAD',
-        dirt1Color: '#422852',
-        dirt2Color: '#2C1838',
-        dirt3Color: '#170A20',
-        dirtHighlight: '#5C3C6F',
-        bgPreset: 'synthwave'
-    },
-    {
-        name: 'Batu Asteroid',
-        baseColor: '#8D99AE',
-        craterColor: '#758094',
-        rimColor: '#A6B2C6',
-        dirt1Color: '#454C59',
-        dirt2Color: '#303540',
-        dirt3Color: '#1B1E24',
-        dirtHighlight: '#5F6878',
-        bgPreset: 'asteroid'
-    },
-    {
-        name: 'Gurun Sahara',
-        baseColor: '#E9C46A',
-        craterColor: '#D1AC52',
-        rimColor: '#F4D78B',
-        dirt1Color: '#735F36',
-        dirt2Color: '#524323',
-        dirt3Color: '#2E2411',
-        dirtHighlight: '#967E4D',
-        bgPreset: 'sunset'
-    },
-    {
-        name: 'Toska Tropis',
-        baseColor: '#52B2CF',
-        craterColor: '#3F99B5',
-        rimColor: '#72CBE6',
-        dirt1Color: '#325C6B',
-        dirt2Color: '#203E4A',
-        dirt3Color: '#102229',
-        dirtHighlight: '#477C8E',
-        bgPreset: 'aurora'
-    },
-    {
-        name: 'Kopi Karamel',
-        baseColor: '#C89666',
-        craterColor: '#B07E4F',
-        rimColor: '#DFB083',
-        dirt1Color: '#61442B',
-        dirt2Color: '#442E1B',
-        dirt3Color: '#25170B',
-        dirtHighlight: '#835E3E',
-        bgPreset: 'asteroid'
-    },
-    {
-        name: 'Koral Cerah',
-        baseColor: '#F28482',
-        craterColor: '#DA6D6B',
-        rimColor: '#F7A4A3',
-        dirt1Color: '#753F3E',
-        dirt2Color: '#542928',
-        dirt3Color: '#301312',
-        dirtHighlight: '#9C5857',
-        bgPreset: 'supernova'
-    },
-    {
-        name: 'Mutiara Polar',
-        baseColor: '#EAE6E1',
-        craterColor: '#D1CDC7',
-        rimColor: '#FAF7F3',
-        dirt1Color: '#69645E',
-        dirt2Color: '#4A4641',
-        dirt3Color: '#2A2723',
-        dirtHighlight: '#8E8880',
-        bgPreset: 'comet'
-    },
-    {
-        name: 'Indigo Nebula',
-        baseColor: '#5C6B9E',
-        craterColor: '#475585',
-        rimColor: '#7786B9',
-        dirt1Color: '#323C5E',
-        dirt2Color: '#212942',
-        dirt3Color: '#111526',
-        dirtHighlight: '#4B5780',
-        bgPreset: 'void'
-    }
-];
-
 export class Moon {
     public group: THREE.Group;
     public mesh!: THREE.Mesh;
@@ -298,11 +24,25 @@ export class Moon {
 
     public baseUnitPositions!: Float32Array;
     public cleanRadii!: Float32Array;
-    public cleanColors!: Float32Array;
     public dirtAmounts!: Float32Array;
     public dirtTiers!: Float32Array;
     public trailAmounts!: Float32Array;
     public activeTrailIndices: Set<number> = new Set();
+
+    // High-resolution GPU-painted 2048x1024 ping-pong RenderTargets (zero CPU upload, silky smooth at any moonScale!)
+    public readonly dirtTexWidth = 2048;
+    public readonly dirtTexHeight = 1024;
+    private renderer: THREE.WebGLRenderer | null = null;
+    private dirtRT_A!: THREE.WebGLRenderTarget;
+    private dirtRT_B!: THREE.WebGLRenderTarget;
+    private readRT!: THREE.WebGLRenderTarget;
+    private writeRT!: THREE.WebGLRenderTarget;
+    private rtScene!: THREE.Scene;
+    private rtCamera!: THREE.OrthographicCamera;
+    private rtQuad!: THREE.Mesh;
+    private rtInitMat!: THREE.ShaderMaterial;
+    private rtBrushMat!: THREE.ShaderMaterial;
+    private _tmpSampleVec = new THREE.Vector3();
 
     public numVerts = 0;
     public totalDirtSum = 0;
@@ -320,15 +60,173 @@ export class Moon {
     public p3 = 3.1;
     public bumpAmt = 0.008;
 
-    constructor(scene: THREE.Scene) {
+    constructor(scene: THREE.Scene, renderer?: THREE.WebGLRenderer) {
         this.group = new THREE.Group();
         scene.add(this.group);
-        this.spatialGrid = new DirtSpatialGrid(36, 72);
+        this.renderer = renderer || null;
+        this.spatialGrid = new DirtSpatialGrid(48, 96);
 
-        this.initGeometry(7); // Detail 7 (81,920 vertices for high-precision silky smooth paths)
+        this.initDirtRenderTargets();
+        this.initGeometry(6); // Detail 6 (40,962 vertices, 81,920 faces — high FPS + 2048x1024 GPU dirt map!)
         this.initMaterial();
         this.mesh = new THREE.Mesh(this.geometry, this.material);
+        attachOutline(this.mesh, { width: 0.012 });
         this.group.add(this.mesh);
+    }
+
+    private initDirtRenderTargets(): void {
+        const rtOpts: THREE.RenderTargetOptions = {
+            minFilter: THREE.LinearFilter,
+            magFilter: THREE.LinearFilter,
+            wrapS: THREE.RepeatWrapping,
+            wrapT: THREE.ClampToEdgeWrapping,
+            format: THREE.RGBAFormat,
+            type: THREE.UnsignedByteType,
+            depthBuffer: false,
+            stencilBuffer: false
+        };
+        this.dirtRT_A = new THREE.WebGLRenderTarget(this.dirtTexWidth, this.dirtTexHeight, rtOpts);
+        this.dirtRT_B = new THREE.WebGLRenderTarget(this.dirtTexWidth, this.dirtTexHeight, rtOpts);
+        this.readRT = this.dirtRT_A;
+        this.writeRT = this.dirtRT_B;
+
+        this.rtScene = new THREE.Scene();
+        this.rtCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+        this.rtInitMat = new THREE.ShaderMaterial({
+            uniforms: {
+                uSeed: { value: 101.0 },
+                uLandingPadY: { value: new THREE.Vector2(0.877, 0.904) }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = position.xy * 0.5 + 0.5;
+                    gl_Position = vec4(position.xy, 0.0, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform float uSeed;
+                uniform vec2 uLandingPadY;
+                varying vec2 vUv;
+
+                void main() {
+                    float phi = vUv.x * 6.28318530718;
+                    float theta = vUv.y * 3.14159265359;
+                    float sinT = sin(theta);
+                    float ux = sinT * cos(phi);
+                    float uy = cos(theta);
+                    float uz = sinT * sin(phi);
+
+                    float uyOuter = uLandingPadY.x;
+                    float uyInner = uLandingPadY.y;
+
+                    float dirt = 0.0;
+                    if (uy >= uyInner) {
+                        dirt = 0.0;
+                    } else if (uy <= uyOuter) {
+                        dirt = 1.0;
+                    } else {
+                        float t = (uyInner - uy) / max(0.0001, uyInner - uyOuter);
+                        dirt = t * t * (3.0 - 2.0 * t);
+                    }
+
+                    float tierVal = 0.0; // Tier 1 = 0.0, Tier 2 = 0.5, Tier 3 = 1.0
+                    if (uy < uyOuter) {
+                        float distFromBase = max(0.0, (uyOuter - uy) / (uyOuter + 1.0));
+                        float patchNoise = sin(ux * 4.8 + uSeed) * 0.07 +
+                                           cos(uz * 4.8 + uSeed * 0.7) * 0.07 +
+                                           sin(uy * 3.6) * 0.04;
+                        float effectiveDist = distFromBase + patchNoise;
+                        if (distFromBase < 0.14 || effectiveDist < 0.30) {
+                            tierVal = 0.0;
+                        } else if (effectiveDist < 0.65) {
+                            tierVal = 0.5;
+                        } else {
+                            tierVal = 1.0;
+                        }
+                    }
+
+                    gl_FragColor = vec4(dirt, tierVal, 0.0, 1.0);
+                }
+            `,
+            depthTest: false,
+            depthWrite: false
+        });
+
+        this.rtBrushMat = new THREE.ShaderMaterial({
+            uniforms: {
+                uPrevDirtMap: { value: this.readRT.texture },
+                uP0: { value: new THREE.Vector3() },
+                uP1: { value: new THREE.Vector3() },
+                uFwd: { value: new THREE.Vector3(0, 0, 1) },
+                uLeft: { value: new THREE.Vector3(1, 0, 0) },
+                uHalfWidth: { value: 0.1 },
+                uHalfDepth: { value: 0.026 },
+                uSweepRate: { value: 1.0 }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = position.xy * 0.5 + 0.5;
+                    gl_Position = vec4(position.xy, 0.0, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform sampler2D uPrevDirtMap;
+                uniform vec3 uP0;
+                uniform vec3 uP1;
+                uniform vec3 uFwd;
+                uniform vec3 uLeft;
+                uniform float uHalfWidth;
+                uniform float uHalfDepth;
+                uniform float uSweepRate;
+                varying vec2 vUv;
+
+                void main() {
+                    vec4 prev = texture2D(uPrevDirtMap, vUv);
+                    if (prev.r <= 0.001) {
+                        gl_FragColor = prev;
+                        return;
+                    }
+
+                    float phi = vUv.x * 6.28318530718;
+                    float theta = vUv.y * 3.14159265359;
+                    float sinT = sin(theta);
+                    vec3 v = vec3(sinT * cos(phi), cos(theta), sinT * sin(phi));
+
+                    vec3 seg = uP1 - uP0;
+                    float segLenSq = dot(seg, seg);
+                    vec3 c = uP1;
+                    if (segLenSq > 0.0000001) {
+                        float t = clamp(dot(v - uP0, seg) / segLenSq, 0.0, 1.0);
+                        c = uP0 + t * seg;
+                    }
+
+                    vec3 d = v - c;
+                    float newR = prev.r;
+                    // Strictly restrict brush to the front hemisphere around c (prevents antipodal mirror-sweeping!)
+                    if (dot(v, c) > 0.3) {
+                        float normLat = abs(dot(d, uLeft)) / uHalfWidth;
+                        float normFwd = abs(dot(d, uFwd)) / uHalfDepth;
+
+                        if (normLat <= 1.06 && normFwd <= 1.08) {
+                            float wLat = 1.0 - smoothstep(0.72, 1.06, normLat);
+                            float wFwd = 1.0 - smoothstep(0.65, 1.08, normFwd);
+                            float weight = wLat * wFwd;
+                            newR = max(0.0, prev.r - uSweepRate * weight);
+                        }
+                    }
+
+                    gl_FragColor = vec4(newR, prev.g, prev.b, 1.0);
+                }
+            `,
+            depthTest: false,
+            depthWrite: false
+        });
+
+        this.rtQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.rtInitMat);
+        this.rtScene.add(this.rtQuad);
     }
 
     private initGeometry(detail: number): void {
@@ -389,14 +287,12 @@ export class Moon {
         this.numVerts = verts.length;
         this.baseUnitPositions = new Float32Array(this.numVerts * 3);
         const positions = new Float32Array(this.numVerts * 3);
-        const colors = new Float32Array(this.numVerts * 3);
-        const cavities = new Float32Array(this.numVerts);
+        const normals = new Float32Array(this.numVerts * 3);
         this.dirtAmounts = new Float32Array(this.numVerts);
         this.dirtTiers = new Float32Array(this.numVerts);
         this.trailAmounts = new Float32Array(this.numVerts);
 
         this.cleanRadii = new Float32Array(this.numVerts);
-        this.cleanColors = new Float32Array(this.numVerts * 3);
 
         for (let i = 0; i < this.numVerts; i++) {
             const idx = i * 3;
@@ -407,6 +303,10 @@ export class Moon {
             positions[idx]     = verts[i][0];
             positions[idx + 1] = verts[i][1];
             positions[idx + 2] = verts[i][2];
+
+            normals[idx]     = verts[i][0];
+            normals[idx + 1] = verts[i][1];
+            normals[idx + 2] = verts[i][2];
         }
 
         const indices = new Uint32Array(faces.length * 3);
@@ -419,8 +319,7 @@ export class Moon {
 
         this.geometry = new THREE.BufferGeometry();
         this.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        this.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-        this.geometry.setAttribute('aCavity', new THREE.BufferAttribute(cavities, 1));
+        this.geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
         this.geometry.setAttribute('aDirt', new THREE.BufferAttribute(this.dirtAmounts, 1));
         this.geometry.setAttribute('aDirtTier', new THREE.BufferAttribute(this.dirtTiers, 1));
         this.geometry.setAttribute('aTrail', new THREE.BufferAttribute(this.trailAmounts, 1));
@@ -432,25 +331,26 @@ export class Moon {
     private initMaterial(): void {
         this.material = new THREE.ShaderMaterial({
             uniforms: {
+                uMoonScale: { value: 1.0 },
                 uLightDir: { value: new THREE.Vector3(-0.55, 0.56, 0.62).normalize() },
                 uLightColor: { value: new THREE.Color('#FFFDF7') },
                 uBaseColor: { value: new THREE.Color('#B8B5E6') },
                 uCraterColor: { value: new THREE.Color('#9590D0') },
                 uRimColor: { value: new THREE.Color('#DAD7FA') },
-                uDirtColor1: { value: new THREE.Color('#6B6382') },
-                uDirtColor2: { value: new THREE.Color('#4F4765') },
-                uDirtColor3: { value: new THREE.Color('#2F2642') },
+                uDirtColor1: { value: new THREE.Color('#38BDF8') },
+                uDirtColor2: { value: new THREE.Color('#FACC15') },
+                uDirtColor3: { value: new THREE.Color('#EF4444') },
                 uDirtHighlight: { value: new THREE.Color('#8A80A6') },
                 uIntensity: { value: 1.15 },
                 uShadowBrightness: { value: 0.48 },
                 uSoftness: { value: 0.55 },
                 uCraterCount: { value: 0 },
-                uCraters: { value: Array.from({ length: 24 }, () => new THREE.Vector4(0, 0, 0, 0)) },
-                uCraterDepths: { value: new Float32Array(24) }
+                uCraters: { value: Array.from({ length: 36 }, () => new THREE.Vector4(0, 0, 0, 0)) },
+                uCraterDepths: { value: new Float32Array(36) },
+                uLandingPadY: { value: new THREE.Vector2(0.877, 0.904) },
+                uDirtMap: { value: this.readRT.texture }
             },
             vertexShader: `
-                attribute vec3 color;
-                attribute float aCavity;
                 attribute float aDirt;
                 attribute float aDirtTier;
                 attribute float aTrail;
@@ -458,13 +358,20 @@ export class Moon {
                 varying vec3 vNormalWorld;
                 varying vec3 vViewDirWorld;
                 varying vec3 vLocalDir;
-                varying float vDirt;
-                varying float vDirtTier;
                 varying float vTrail;
 
+                // IQ 1-Tap Smooth Cubic Hermite Texture Filter (eliminates bilinear grid kinks & pixelation)
+                vec4 sampleSmoothDirt(sampler2D tex, vec2 uv) {
+                    vec2 texSize = vec2(2048.0, 1024.0);
+                    vec2 p = uv * texSize + 0.5;
+                    vec2 i = floor(p);
+                    vec2 f = fract(p);
+                    f = f * f * (3.0 - 2.0 * f);
+                    vec2 smoothUv = (i + f - 0.5) / texSize;
+                    return texture2D(tex, smoothUv);
+                }
+
                 void main() {
-                    vDirt = aDirt;
-                    vDirtTier = aDirtTier;
                     vTrail = aTrail;
                     vLocalDir = normalize(position);
 
@@ -489,17 +396,18 @@ export class Moon {
                 uniform float uShadowBrightness;
                 uniform float uSoftness;
                 uniform int uCraterCount;
-                uniform vec4 uCraters[24];
-                uniform float uCraterDepths[24];
+                uniform vec4 uCraters[36];
+                uniform float uCraterDepths[36];
+                uniform vec2 uLandingPadY;
+                uniform float uMoonScale;
+                uniform sampler2D uDirtMap;
 
                 varying vec3 vNormalWorld;
                 varying vec3 vViewDirWorld;
                 varying vec3 vLocalDir;
-                varying float vDirt;
-                varying float vDirtTier;
                 varying float vTrail;
 
-                // High-performance smooth 3D continuous noise
+                // Continuous, organic smooth 3D value noise (creates soft, velvety lunar regolith gradients)
                 float hash3D(vec3 p) {
                     p = fract(p * 0.3183099 + 0.1);
                     p *= 17.0;
@@ -509,7 +417,7 @@ export class Moon {
                 float smoothNoise3D(vec3 p) {
                     vec3 i = floor(p);
                     vec3 f = fract(p);
-                    vec3 u = f * f * (3.0 - 2.0 * f); // Cubic hermite curve
+                    vec3 u = f * f * (3.0 - 2.0 * f); // Cubic Hermite curve for smooth continuous transition
 
                     return mix(
                         mix(
@@ -526,6 +434,17 @@ export class Moon {
                     );
                 }
 
+                // IQ 1-Tap Smooth Cubic Hermite Texture Filter (eliminates bilinear grid kinks & pixelation)
+                vec4 sampleSmoothDirt(sampler2D tex, vec2 uv) {
+                    vec2 texSize = vec2(2048.0, 1024.0);
+                    vec2 p = uv * texSize + 0.5;
+                    vec2 i = floor(p);
+                    vec2 f = fract(p);
+                    f = f * f * (3.0 - 2.0 * f);
+                    vec2 smoothUv = (i + f - 0.5) / texSize;
+                    return texture2D(tex, smoothUv);
+                }
+
                 void main() {
                     vec3 dir = normalize(vLocalDir);
                     vec3 N = normalize(vNormalWorld);
@@ -533,12 +452,12 @@ export class Moon {
                     vec3 V = normalize(vViewDirWorld);
                     vec3 H = normalize(L + V);
 
-                    // 1. Procedural Smooth Crater Evaluation (Per-Pixel Exact Circles & Soft Bowls)
+                    // 1. Procedural Multi-Tier Crater Evaluation (Flat-bottomed clay bowls, central hero peak & crisp rims)
                     float pitFactor = 0.0;
                     float rimFactor = 0.0;
                     vec3 craterSlopeVec = vec3(0.0);
 
-                    for (int c = 0; c < 24; c++) {
+                    for (int c = 0; c < 36; c++) {
                         if (c >= uCraterCount) break;
                         vec4 cr = uCraters[c];
                         vec3 cCenter = cr.xyz;
@@ -551,84 +470,112 @@ export class Moon {
 
                         if (distSq < maxR * maxR) {
                             float dist = sqrt(distSq);
-                            float x = dist / cRad;
+                            float invRad = 1.0 / cRad;
+                            float x = dist * invRad;
+                            vec3 radialDir = diff / max(dist, 0.0001);
 
-                            // Smooth bowl depression
+                            // Sculpted flat-bottomed lunar bowl (steep inner wall, wide floor)
                             if (x < 1.0) {
-                                float bowl = pow(0.5 * (1.0 + cos(3.14159265 * x)), 1.5);
-                                pitFactor = max(pitFactor, bowl);
+                                float h = clamp(1.0 - x * x, 0.0, 1.0);
+                                float bowl = smoothstep(0.0, 0.78, h);
+                                // Gentle central rebound dome on large hero craters
+                                float peak = (cDepth > 0.028 && x < 0.28) ? (1.0 - smoothstep(0.0, 0.28, x)) * 0.22 : 0.0;
+                                float netPit = max(0.0, bowl - peak);
+                                pitFactor = max(pitFactor, netPit);
 
-                                // Analytical derivative for lighting normal curvature
-                                float slopeMag = -1.5 * pow(0.5 * (1.0 + cos(3.14159265 * x)), 0.5) * 0.5 * sin(3.14159265 * x) * (3.14159265 / cRad) * cDepth;
-                                craterSlopeVec += (diff / max(dist, 0.0001)) * slopeMag;
+                                float wallSlope = (h > 0.0 && h < 0.78) ? (-2.2 * x * invRad * cDepth) : 0.0;
+                                float peakSlope = (cDepth > 0.028 && x < 0.28) ? (1.4 * x * invRad * cDepth) : 0.0;
+                                craterSlopeVec += radialDir * (wallSlope + peakSlope);
                             }
 
-                            // Circular raised rim (100% mathematically circular, zero hexagon faceting!)
-                            if (x > 0.50 && x < 1.65) {
-                                float rimNorm = (x - 1.04) / 0.26;
-                                float rimBell = exp(-(rimNorm * rimNorm));
-                                float rimMask = smoothstep(0.50, 0.92, x) * (1.0 - smoothstep(1.18, 1.65, x));
-                                float rimCurve = rimBell * rimMask;
+                            // Crisp raised crater rim + soft outer ejecta skirt
+                            if (x > 0.58 && x < 1.65) {
+                                float rimDist = abs(x - 1.02);
+                                float rimCurve = max(0.0, 1.0 - rimDist * 3.4);
+                                rimCurve = rimCurve * rimCurve;
                                 rimFactor = max(rimFactor, rimCurve);
 
-                                // Outward rim slope bevel
-                                float dRim = -2.0 * rimNorm * (1.0 / 0.26) * rimBell * rimMask * (1.0 / cRad) * cDepth * 0.46;
-                                craterSlopeVec += (diff / max(dist, 0.0001)) * dRim;
+                                float dRim = (x < 1.02 ? 1.0 : -0.7) * rimCurve * invRad * cDepth * 0.55;
+                                craterSlopeVec += radialDir * dRim;
                             }
                         }
                     }
 
                     // Smoothly curve normal using analytical crater gradient
-                    N = normalize(N - craterSlopeVec * 0.82);
+                    float scaleFreq = max(0.5, uMoonScale);
+                    N = normalize(N - craterSlopeVec * 0.88);
 
-                    // Calculate clean moon surface color per pixel (subtle, soft crater depth & gentle rim highlight)
+                    // Calculate clean moon surface color per pixel (richer clay crater depth & rim highlight)
                     vec3 cleanColor = uBaseColor;
                     if (pitFactor > 0.005) {
-                        float smoothPit = smoothstep(0.0, 0.95, pitFactor);
-                        cleanColor = mix(cleanColor, uCraterColor, min(0.38, smoothPit * 0.35));
+                        float smoothPit = smoothstep(0.0, 0.92, pitFactor);
+                        cleanColor = mix(cleanColor, uCraterColor, min(0.52, smoothPit * 0.48));
                     }
-                    if (rimFactor > 0.01 && pitFactor < 0.25) {
-                        cleanColor = mix(cleanColor, uRimColor, min(0.26, rimFactor * 0.24));
-                    }
-
-                    // 2. Multi-tier dirt color blending
-                    vec3 baseDirt = uDirtColor1;
-                    if (vDirtTier > 2.5) {
-                        baseDirt = uDirtColor3;
-                    } else if (vDirtTier > 1.5) {
-                        baseDirt = uDirtColor2;
+                    if (rimFactor > 0.01 && pitFactor < 0.28) {
+                        cleanColor = mix(cleanColor, uRimColor, min(0.38, rimFactor * 0.34));
                     }
 
-                    // Smoothly darken craters on the dirty layer using per-pixel pitFactor (gentle subtle ambient depth)
+                    // 2. Per-Pixel 2048x1024 Smooth Cubic Dirt & Multi-Tier Sampling
+                    float phi = atan(dir.z, dir.x);
+                    float dirtU = phi / 6.28318530718;
+                    if (dirtU < 0.0) dirtU += 1.0;
+                    float dirtV = acos(clamp(dir.y, -1.0, 1.0)) / 3.14159265359;
+                    vec4 dirtSample = sampleSmoothDirt(uDirtMap, vec2(dirtU, dirtV));
+                    float texDirt = dirtSample.r;
+                    float texTier = dirtSample.g * 2.0 + 1.0;
+
+                    vec3 baseDirt;
+                    if (texTier <= 1.0) {
+                        baseDirt = uDirtColor1;
+                    } else if (texTier <= 2.0) {
+                        float t = smoothstep(1.0, 2.0, texTier);
+                        baseDirt = mix(uDirtColor1, uDirtColor2, t);
+                    } else {
+                        float t = smoothstep(2.0, 3.0, texTier);
+                        baseDirt = mix(uDirtColor2, uDirtColor3, t);
+                    }
+
+                    // Smoothly darken craters on the dirty layer using per-pixel pitFactor
                     if (pitFactor > 0.05) {
-                        baseDirt = mix(baseDirt, uDirtColor3, smoothstep(0.05, 0.70, pitFactor) * 0.40);
+                        baseDirt *= (1.0 - smoothstep(0.05, 0.70, pitFactor) * 0.35);
                     }
 
-                    // Soft organic procedural dust texture without sharp pixel blocks
-                    float grain1 = smoothNoise3D(dir * 85.0);
-                    float grain2 = smoothNoise3D(dir * 160.0);
-                    float organicDustGrain = grain1 * 0.65 + grain2 * 0.35;
-                    vec3 dustySurface = mix(baseDirt, uDirtHighlight, organicDustGrain * 0.35);
+                    // Smooth stylized clay shading (soft low-contrast variation, zero static/grain noise)
+                    float clayWave = smoothNoise3D(dir * (26.0 * scaleFreq));
+                    vec3 dustySurface = mix(baseDirt, uDirtHighlight, clayWave * 0.12);
 
                     // Procedural North Pole Landing Pad (Rocket Base circular zone)
-                    // Mathematically exact circular perimeter with anti-aliasing (eliminates polygon stepping!)
-                    float landingPadClean = smoothstep(0.852, 0.878, dir.y);
-                    float effectiveDirt = vDirt * (1.0 - landingPadClean);
+                    float landingPadClean = smoothstep(uLandingPadY.x, uLandingPadY.y, dir.y);
+                    float effectiveDirt = texDirt * (1.0 - landingPadClean);
 
-                    // Silky-smooth anti-aliased continuous dirt mask transition (wide cubic Hermite band)
-                    float dirtMask = smoothstep(0.04, 0.55, effectiveDirt);
+                    // Silky-smooth, crisp clay edge (zero blur and zero pixel staircases)
+                    float dirtMask = smoothstep(0.32, 0.68, effectiveDirt);
 
-                    // Soft rounded clay edge highlight at the border of the sweep and landing pad
-                    float edgeGlow = smoothstep(0.03, 0.22, effectiveDirt) * (1.0 - smoothstep(0.22, 0.52, effectiveDirt));
-                    dustySurface += vec3(0.08, 0.07, 0.06) * edgeGlow;
+                    // Smooth 3D clay bevel normal (sampled with IQ cubic filter across 2048x1024 RT)
+                    float epsU = 2.0 / 2048.0;
+                    float epsV = 2.0 / 1024.0;
+                    float hR = sampleSmoothDirt(uDirtMap, vec2(dirtU + epsU, dirtV)).r * (1.0 - landingPadClean);
+                    float hD = sampleSmoothDirt(uDirtMap, vec2(dirtU, min(1.0, dirtV + epsV))).r * (1.0 - landingPadClean);
+                    vec3 upRef = abs(dir.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+                    vec3 tanU = normalize(cross(upRef, dir));
+                    vec3 tanV = normalize(cross(dir, tanU));
+                    float dU = hR - effectiveDirt;
+                    float dV = hD - effectiveDirt;
+                    N = normalize(N - (tanU * dU + tanV * dV) * 0.85);
+
+                    // Subtle clay rim highlight on the dust edge
+                    float edgeRim = smoothstep(0.28, 0.52, effectiveDirt) * (1.0 - smoothstep(0.52, 0.78, effectiveDirt));
+                    dustySurface += vec3(0.04, 0.036, 0.032) * edgeRim;
 
                     vec3 baseAlbedo = mix(cleanColor, dustySurface, dirtMask);
 
-                    // 3. Smooth tire trails (fading, soft tint)
+                    // 3. Subtle background track shadow
                     float trailVal = clamp(vTrail, 0.0, 1.0);
-                    float smoothTrail = smoothstep(0.05, 0.55, trailVal);
-                    vec3 trailTint = baseAlbedo * vec3(0.72, 0.70, 0.78);
-                    baseAlbedo = mix(baseAlbedo, trailTint, smoothTrail * 0.65);
+                    if (trailVal > 0.02) {
+                        float smoothTrail = smoothstep(0.10, 0.60, trailVal);
+                        vec3 trailTint = baseAlbedo * vec3(0.82, 0.80, 0.86);
+                        baseAlbedo = mix(baseAlbedo, trailTint, smoothTrail * 0.35);
+                    }
 
                     // Wrap-diffuse clay shading
                     float NdotL = dot(N, L);
@@ -637,7 +584,8 @@ export class Moon {
                     diffuse = pow(diffuse, 1.12);
 
                     float backFill = clamp(dot(N, -L) * 0.5 + 0.5, 0.0, 1.0) * 0.18;
-                    float ao = 1.0 - pitFactor * 0.24;
+                    float edgeContactAO = smoothstep(0.12, 0.40, effectiveDirt) * (1.0 - smoothstep(0.40, 0.62, effectiveDirt));
+                    float ao = (1.0 - pitFactor * 0.24) * (1.0 - edgeContactAO * 0.24);
 
                     // Tinted pastel shadows
                     vec3 shadowTint = baseAlbedo * vec3(0.84, 0.84, 0.98) * uShadowBrightness;
@@ -665,11 +613,12 @@ export class Moon {
     }
 
     public sampleCleanRadiusAt(ux: number, uy: number, uz: number): number {
+        const R = Math.max(0.5, this.moonScale);
         let noise = 0;
         if (this.bumpAmt > 0) {
-            noise = Math.sin(ux * 2.4 + this.p1) *
-                    Math.cos(uy * 2.3 + this.p2) *
-                    Math.sin(uz * 2.5 + this.p3) * this.bumpAmt;
+            noise = Math.sin(ux * (2.4 * R) + this.p1) *
+                    Math.cos(uy * (2.3 * R) + this.p2) *
+                    Math.sin(uz * (2.5 * R) + this.p3) * this.bumpAmt;
         }
 
         let craterDisp = 0;
@@ -686,33 +635,59 @@ export class Moon {
                 const x = dist / cr.radius;
 
                 if (x < 1.0) {
-                    const bowl = Math.pow(0.5 * (1.0 + Math.cos(Math.PI * x)), 1.5);
-                    craterDisp -= cr.depth * bowl;
+                    const h = Math.max(0.0, 1.0 - x * x);
+                    const bowl = smoothstep(0.0, 0.78, h);
+                    const peak = (cr.depth > 0.028 && x < 0.28) ? (1.0 - smoothstep(0.0, 0.28, x)) * 0.22 : 0.0;
+                    craterDisp -= cr.depth * Math.max(0.0, bowl - peak);
                 }
 
-                if (x > 0.50 && x < 1.65) {
-                    const rimNorm = (x - 1.04) / 0.26;
-                    const rimBell = Math.exp(-(rimNorm * rimNorm));
-                    const rimMask = smoothstep(0.50, 0.92, x) * (1.0 - smoothstep(1.18, 1.65, x));
-                    craterDisp += cr.depth * 0.46 * rimBell * rimMask;
+                if (x > 0.58 && x < 1.65) {
+                    const rimDist = Math.abs(x - 1.02);
+                    const rimCurve = Math.max(0.0, 1.0 - rimDist * 3.4);
+                    craterDisp += cr.depth * 0.55 * (rimCurve * rimCurve);
                 }
             }
         }
 
-        return Math.max(0.5, 1.0 + noise + craterDisp);
+        return Math.max(0.5 * R, R + noise + craterDisp);
+    }
+
+    /**
+     * Fast zero-allocation lookup of dirt amount (0..1) via the spherical spatial grid.
+     */
+    public sampleDirtAt(ux: number, uy: number, uz: number): number {
+        const len = Math.hypot(ux, uy, uz) || 1.0;
+        const nx = ux / len;
+        const ny = uy / len;
+        const nz = uz / len;
+
+        const R = Math.max(0.5, this.moonScale);
+        const thetaInner = Math.min(1.10, 0.44 / R);
+        if (ny >= Math.cos(thetaInner)) return 0;
+
+        this._tmpSampleVec.set(nx, ny, nz);
+        const nearby = this.spatialGrid.queryVerticesNear(this._tmpSampleVec, 0.032);
+        if (nearby.length === 0) return 0;
+
+        let weightedSum = 0;
+        let weightTotal = 0;
+        for (let k = 0; k < nearby.length; k++) {
+            const vIdx = nearby[k];
+            const idx = vIdx * 3;
+            const dx = this.baseUnitPositions[idx] - nx;
+            const dy = this.baseUnitPositions[idx + 1] - ny;
+            const dz = this.baseUnitPositions[idx + 2] - nz;
+            const dSq = dx * dx + dy * dy + dz * dz;
+            const w = 1.0 / (dSq + 0.00005);
+            weightedSum += this.dirtAmounts[vIdx] * w;
+            weightTotal += w;
+        }
+        return weightTotal > 0 ? weightedSum / weightTotal : 0;
     }
 
     public sampleActualSurfaceRadiusAt(ux: number, uy: number, uz: number): number {
         const cleanR = this.sampleCleanRadiusAt(ux, uy, uz);
-        const nearby = this.spatialGrid.queryVerticesNear(new THREE.Vector3(ux, uy, uz), 0.08);
-        let dirt = 0;
-        if (nearby.length > 0) {
-            let total = 0;
-            for (let k = 0; k < nearby.length; k++) {
-                total += this.dirtAmounts[nearby[k]];
-            }
-            dirt = total / nearby.length;
-        }
+        const dirt = this.sampleDirtAt(ux, uy, uz);
         return cleanR + dirt * this.dirtHeight;
     }
 
@@ -721,11 +696,24 @@ export class Moon {
         const cfg = ConfigManager.current;
         this.dirtHeight = cfg.dirtHeight;
         this.moonScale = cfg.moonScale;
-        this.group.scale.setScalar(this.moonScale);
+        this.group.scale.set(1, 1, 1);
 
         this.material.uniforms.uSoftness.value = cfg.softness;
         this.material.uniforms.uShadowBrightness.value = cfg.shadowBrightness;
         this.material.uniforms.uIntensity.value = cfg.intensity;
+        this.material.uniforms.uMoonScale.value = this.moonScale;
+
+        // Base pad size remains constant in physical world units (~0.50) regardless of moon scale
+        const R = Math.max(0.5, this.moonScale);
+        const thetaOuter = Math.min(1.15, 0.50 / R);
+        const thetaInner = Math.min(1.10, 0.44 / R);
+        const uyOuter = Math.cos(thetaOuter);
+        const uyInner = Math.cos(thetaInner);
+
+        if (this.material.uniforms.uLandingPadY) {
+            this.material.uniforms.uLandingPadY.value.set(uyOuter, uyInner);
+        }
+
         this.updateVertexHeights();
     }
 
@@ -738,43 +726,74 @@ export class Moon {
 
         this.moonScale = ConfigManager.current.moonScale;
         this.dirtHeight = ConfigManager.current.dirtHeight;
-        this.group.scale.setScalar(this.moonScale);
+        this.group.scale.set(1, 1, 1);
 
-        const craterCount = Math.floor(12 + rand() * 12 + Math.min(8, moonLevel * 1.5));
-        const sizeMult = 0.95 + rand() * 0.45;
-        const depthMult = 0.48 + rand() * 0.26;
+        // Base radius R is clamped to [0.6, 3.0] before any crater, noise, or dust generation
+        const R = THREE.MathUtils.clamp(this.moonScale || 1.0, 0.60, 3.00);
+        this.moonScale = R;
+        if (this.material && this.material.uniforms && this.material.uniforms.uMoonScale) {
+            this.material.uniforms.uMoonScale.value = R;
+        }
+
+        // Fixed physical base pad size (~0.50 world units), regardless of how large the moon is
+        const thetaOuter = Math.min(1.15, 0.50 / R);
+        const thetaInner = Math.min(1.10, 0.44 / R);
+        const uyOuter = Math.cos(thetaOuter);
+        const uyInner = Math.cos(thetaInner);
+
+        if (this.material && this.material.uniforms && this.material.uniforms.uLandingPadY) {
+            this.material.uniforms.uLandingPadY.value.set(uyOuter, uyInner);
+        }
+
+        // Scale both crater count (up to 34) and crater size with moonScale R in [0.6, 3.0]
+        const normR = (R - 0.60) / 2.40; // 0.0 at 0.6, 1.0 at 3.0
+        const craterCount = Math.min(34, Math.round(7 + normR * 24 + rand() * 3));
+        const sizeMult = (0.76 + 0.28 * R) * (0.94 + rand() * 0.18);
+        const depthMult = 0.60 + rand() * 0.24;
 
         this.craters = [];
-        const maxAttempts = craterCount * 75;
+        const maxAttempts = craterCount * 90;
         let attempts = 0;
+        const heroQuota = Math.max(3, Math.floor(craterCount * 0.35));
 
         while (this.craters.length < craterCount && attempts < maxAttempts) {
             attempts++;
-            const u = rand();
-            const v = rand();
-            const theta = 2 * Math.PI * u;
-            const phi = Math.acos(2 * v - 1);
-
-            const cx = Math.sin(phi) * Math.cos(theta);
-            const cy = Math.cos(phi);
-            const cz = Math.sin(phi) * Math.sin(theta);
-
-            if (cy > 0.85) continue;
-
-            let baseRadius: number;
-            const heroQuota = Math.max(2, Math.floor(craterCount * 0.25));
+            // Stratified golden-angle dispersion for hero craters so they spread naturally across the globe
+            let cx: number, cy: number, cz: number;
             if (this.craters.length < heroQuota) {
-                baseRadius = 0.20 + rand() * 0.06;
-            } else if (rand() < 0.5) {
-                baseRadius = 0.13 + rand() * 0.05;
+                const slot = this.craters.length;
+                const yBase = 1.0 - 2.0 * ((slot + 0.35 + rand() * 0.30) / (heroQuota + 1.0));
+                const rHoriz = Math.sqrt(Math.max(0, 1.0 - yBase * yBase));
+                const goldenPhi = slot * 2.3999632 + rand() * 0.65;
+                cx = rHoriz * Math.cos(goldenPhi);
+                cy = yBase;
+                cz = rHoriz * Math.sin(goldenPhi);
             } else {
-                baseRadius = 0.08 + rand() * 0.04;
+                const u = rand();
+                const v = rand();
+                const theta = 2 * Math.PI * u;
+                const phi = Math.acos(2 * v - 1);
+                cx = Math.sin(phi) * Math.cos(theta);
+                cy = Math.cos(phi);
+                cz = Math.sin(phi) * Math.sin(theta);
             }
 
-            const radius = baseRadius * sizeMult;
-            const depth = (0.030 + baseRadius * 0.23) * depthMult;
+            if (cy > uyOuter - 0.05) continue;
 
-            const relaxFactor = attempts > maxAttempts * 0.7 ? 0.84 : 1.08;
+            // Clean Hero & Medium craters only (avoids tiny trypophobia-triggering hole clusters)
+            let physicalRadius: number;
+            const isHero = this.craters.length < heroQuota;
+            if (isHero) {
+                physicalRadius = (0.24 + rand() * 0.11) * sizeMult;
+            } else {
+                physicalRadius = (0.14 + rand() * 0.07) * sizeMult;
+            }
+
+            const radius = Math.min(0.60, physicalRadius / R);
+            const depth = (0.020 + physicalRadius * 0.12) * depthMult;
+
+            // Generous spacing between all craters so craters never cluster tightly
+            const relaxFactor = isHero ? 1.25 : 1.18;
             let overlaps = false;
             for (let j = 0; j < this.craters.length; j++) {
                 const other = this.craters[j];
@@ -793,24 +812,15 @@ export class Moon {
         this.p1 = rand() * 10;
         this.p2 = rand() * 10;
         this.p3 = rand() * 10;
-        this.bumpAmt = rand() * 0.012;
+        this.bumpAmt = rand() * 0.010;
 
-        const colAttr = this.geometry.attributes.color;
-        const cavAttr = this.geometry.attributes.aCavity;
         const dirtAttr = this.geometry.attributes.aDirt;
         const tierAttr = this.geometry.attributes.aDirtTier;
         const trailAttr = this.geometry.attributes.aTrail;
 
-        const colArr = colAttr.array as Float32Array;
-        const cavArr = cavAttr.array as Float32Array;
         const dirtArr = dirtAttr.array as Float32Array;
         const tierArr = tierAttr.array as Float32Array;
         const trailArr = trailAttr.array as Float32Array;
-
-        const cBase = new THREE.Color(this.currentPalette.baseColor);
-        const cCrater = new THREE.Color(this.currentPalette.craterColor);
-        const cRim = new THREE.Color(this.currentPalette.rimColor);
-        const tempCol = new THREE.Color();
 
         this.totalDirtSum = 0;
 
@@ -820,88 +830,43 @@ export class Moon {
             const uy = this.baseUnitPositions[idx + 1];
             const uz = this.baseUnitPositions[idx + 2];
 
-            let noise = 0;
-            if (this.bumpAmt > 0) {
-                noise = Math.sin(ux * 2.4 + this.p1) *
-                        Math.cos(uy * 2.3 + this.p2) *
-                        Math.sin(uz * 2.5 + this.p3) * this.bumpAmt;
-            }
+            this.cleanRadii[i] = this.sampleCleanRadiusAt(ux, uy, uz);
 
-            let craterDisp = 0;
-            let pitFactor = 0;
-            let rimFactor = 0;
-
-            for (let c = 0; c < this.craters.length; c++) {
-                const cr = this.craters[c];
-                const dx = ux - cr.cx;
-                const dy = uy - cr.cy;
-                const dz = uz - cr.cz;
-                const distSq = dx * dx + dy * dy + dz * dz;
-                const maxRange = cr.radius * 1.65;
-
-                if (distSq < maxRange * maxRange) {
-                    const dist = Math.sqrt(distSq);
-                    const x = dist / cr.radius;
-
-                    if (x < 1.0) {
-                        const bowl = Math.pow(0.5 * (1.0 + Math.cos(Math.PI * x)), 1.5);
-                        craterDisp -= cr.depth * bowl;
-                        pitFactor = Math.max(pitFactor, bowl);
-                    }
-
-                    if (x > 0.50 && x < 1.65) {
-                        const rimNorm = (x - 1.04) / 0.26;
-                        const rimBell = Math.exp(-(rimNorm * rimNorm));
-                        const rimMask = smoothstep(0.50, 0.92, x) * (1.0 - smoothstep(1.18, 1.65, x));
-                        const rimCurve = rimBell * rimMask;
-
-                        craterDisp += cr.depth * 0.46 * rimCurve;
-                        rimFactor = Math.max(rimFactor, rimCurve * Math.min(1, depthMult * 1.6));
-                    }
-                }
-            }
-
-            this.cleanRadii[i] = Math.max(0.5, 1.0 + noise + craterDisp);
-            cavArr[i] = pitFactor;
-
-            tempCol.copy(cBase);
-            if (pitFactor > 0.005) {
-                const smoothPit = smoothstep(0.0, 0.95, pitFactor);
-                tempCol.lerp(cCrater, Math.min(0.68, smoothPit * 0.64));
-            }
-            if (rimFactor > 0.01 && pitFactor < 0.25) {
-                tempCol.lerp(cRim, Math.min(0.58, rimFactor * 0.50));
-            }
-
-            this.cleanColors[idx]     = tempCol.r;
-            this.cleanColors[idx + 1] = tempCol.g;
-            this.cleanColors[idx + 2] = tempCol.b;
-
-            colArr[idx]     = tempCol.r;
-            colArr[idx + 1] = tempCol.g;
-            colArr[idx + 2] = tempCol.b;
-
-            if (uy >= 0.880) {
+            if (uy >= uyInner) {
                 dirtArr[i] = 0.0;
                 tierArr[i] = 1.0;
-            } else if (uy <= 0.852) {
+            } else if (uy <= uyOuter) {
                 dirtArr[i] = 1.0;
                 this.totalDirtSum += 1.0;
 
-                const tierNoise = Math.sin(ux * 4.2 + 1.5) * Math.cos(uz * 4.2 + 2.7);
-                if (tierNoise > 0.35) {
-                    tierArr[i] = 3.0;
-                } else if (tierNoise > -0.2) {
-                    tierArr[i] = 2.0;
+                // Normalized distance away from base landing pad perimeter (0.0 right outside base, 1.0 at south pole)
+                const distFromBase = Math.max(0.0, (uyOuter - uy) / (uyOuter + 1.0));
+
+                // Organic procedural noise for natural winding borders between tiers
+                const patchNoise = Math.sin(ux * 4.8 + this.seed) * 0.07 +
+                                   Math.cos(uz * 4.8 + this.seed * 0.7) * 0.07 +
+                                   Math.sin(uy * 3.6) * 0.04;
+
+                const effectiveDist = distFromBase + patchNoise;
+
+                // 1. Bagian awal atau dekat dengan base: Tier 1 (debu paling lemah, -10% kec, mudah dibersihkan)
+                // 2. Zona menengah (lingkar ekuator): Tier 2 (debu sedang, -50% kec)
+                // 3. Zona jauh (belahan belakang bulan): Tier 3 (debu tebal/pekat, -90% kec)
+                if (distFromBase < 0.14 || effectiveDist < 0.30) {
+                    tierArr[i] = 1.0; // Tier 1: Debu Lemah (-10% kec) - di awal & dekat base
+                } else if (effectiveDist < 0.65) {
+                    tierArr[i] = 2.0; // Tier 2: Debu Sedang (-50% kec)
                 } else {
-                    tierArr[i] = 1.0;
+                    tierArr[i] = 3.0; // Tier 3: Debu Tebal/Pekat (-90% kec)
                 }
             } else {
-                // Smooth cubic Hermite transition band at landing pad perimeter (0.852 to 0.880)
-                const t = (0.880 - uy) / (0.880 - 0.852);
+                // Smooth cubic Hermite transition band at landing pad perimeter
+                const t = (uyInner - uy) / (uyInner - uyOuter);
                 const smoothT = t * t * (3.0 - 2.0 * t);
                 dirtArr[i] = smoothT;
                 this.totalDirtSum += smoothT;
+
+                // Tepat di batas luar base adalah Tier 1 (debu paling lemah)
                 tierArr[i] = 1.0;
             }
 
@@ -910,28 +875,31 @@ export class Moon {
 
         this.initialTotalDirt = this.totalDirtSum;
 
-        colAttr.needsUpdate = true;
-        cavAttr.needsUpdate = true;
         dirtAttr.needsUpdate = true;
         tierAttr.needsUpdate = true;
         trailAttr.needsUpdate = true;
 
+        // Populate 1024x512 per-pixel dirt texture for razor-sharp edges at any moonScale
+        this.populateDirtTexture(uyOuter, uyInner);
+
         this.material.uniforms.uBaseColor.value.set(this.currentPalette.baseColor);
         this.material.uniforms.uCraterColor.value.set(this.currentPalette.craterColor);
         this.material.uniforms.uRimColor.value.set(this.currentPalette.rimColor);
-        this.material.uniforms.uDirtColor1.value.set(this.currentPalette.dirt1Color);
-        this.material.uniforms.uDirtColor2.value.set(this.currentPalette.dirt2Color);
-        this.material.uniforms.uDirtColor3.value.set(this.currentPalette.dirt3Color);
+        // Harmonious, natural palette dust colors (blends naturally with the lunar crust):
+        this.material.uniforms.uDirtColor1.value.set(this.currentPalette.dirt1Color); // Tier 1: Debu permukaan halus (-10% kec)
+        this.material.uniforms.uDirtColor2.value.set(this.currentPalette.dirt2Color); // Tier 2: Debu regolith sedang (-50% kec)
+        this.material.uniforms.uDirtColor3.value.set(this.currentPalette.dirt3Color); // Tier 3: Debu pekat tebal (-90% kec)
         this.material.uniforms.uDirtHighlight.value.set(this.currentPalette.dirtHighlight);
 
-        // Upload procedural crater data to shader uniforms
-        const activeCraterCount = Math.min(24, this.craters.length);
+        // Upload procedural crater data to shader uniforms (prioritizing up to 36 prominent craters)
+        const sortedCraters = [...this.craters].sort((a, b) => (b.radius * b.depth) - (a.radius * a.depth));
+        const activeCraterCount = Math.min(36, sortedCraters.length);
         this.material.uniforms.uCraterCount.value = activeCraterCount;
         const craterVecs = this.material.uniforms.uCraters.value as THREE.Vector4[];
         const craterDepths = this.material.uniforms.uCraterDepths.value as Float32Array;
-        for (let c = 0; c < 24; c++) {
+        for (let c = 0; c < 36; c++) {
             if (c < activeCraterCount) {
-                const cr = this.craters[c];
+                const cr = sortedCraters[c];
                 craterVecs[c].set(cr.cx, cr.cy, cr.cz, cr.radius);
                 craterDepths[c] = cr.depth;
             } else {
@@ -943,6 +911,7 @@ export class Moon {
         this.applyShaderConfig();
     }
 
+    private trailUpdateFrame = 0;
     public updateTrails(dt: number): void {
         if (this.activeTrailIndices.size === 0) return;
 
@@ -965,7 +934,47 @@ export class Moon {
             this.activeTrailIndices.delete(toRemove[k]);
         }
 
-        trailAttr.needsUpdate = true;
+        // Throttle GPU vertex buffer upload to every 2-3 frames while fading (20-30 Hz is perfectly smooth for fading trails)
+        this.trailUpdateFrame++;
+        if (this.trailUpdateFrame % 2 === 0 || this.activeTrailIndices.size === 0) {
+            trailAttr.needsUpdate = true;
+        }
+    }
+
+    /**
+     * Dynamically carves a new crater on the moon surface (e.g. from a meteor impact)
+     * and updates both the shader uniforms and nearby vertex heights.
+     */
+    public addDynamicCrater(dir: THREE.Vector3, radius: number, depth: number): void {
+        const unitDir = dir.clone().normalize();
+        const crater: Crater = { cx: unitDir.x, cy: unitDir.y, cz: unitDir.z, radius, depth };
+        let idx = this.craters.length;
+        if (idx < 36) {
+            this.craters.push(crater);
+            this.material.uniforms.uCraterCount.value = this.craters.length;
+        } else {
+            idx = 35;
+            this.craters[idx] = crater;
+        }
+
+        this.material.uniforms.uCraters.value[idx].set(unitDir.x, unitDir.y, unitDir.z, radius);
+        this.material.uniforms.uCraterDepths.value[idx] = depth;
+
+        const minDot = Math.cos(Math.min(Math.PI, radius * 1.45));
+        const count = this.cleanRadii.length;
+        const affected: number[] = [];
+        for (let i = 0; i < count; i++) {
+            const nx = this.baseUnitPositions[i * 3];
+            const ny = this.baseUnitPositions[i * 3 + 1];
+            const nz = this.baseUnitPositions[i * 3 + 2];
+            if (nx * unitDir.x + ny * unitDir.y + nz * unitDir.z >= minDot) {
+                this.cleanRadii[i] = this.sampleCleanRadiusAt(nx, ny, nz);
+                affected.push(i);
+            }
+        }
+        if (affected.length > 0) {
+            this.updateVertexHeightsFast(affected);
+        }
     }
 
     public updateVertexHeightsFast(indices: number[]): void {
@@ -984,18 +993,100 @@ export class Moon {
         posAttr.needsUpdate = true;
     }
 
+    private populateDirtTexture(uyOuter: number, uyInner: number): void {
+        if (!this.renderer) return;
+
+        this.rtInitMat.uniforms.uSeed.value = this.seed;
+        this.rtInitMat.uniforms.uLandingPadY.value.set(uyOuter, uyInner);
+        this.rtQuad.material = this.rtInitMat;
+
+        const prevTarget = this.renderer.getRenderTarget();
+        const prevAutoClear = this.renderer.autoClear;
+        this.renderer.autoClear = false;
+        this.renderer.setRenderTarget(this.readRT);
+        this.renderer.render(this.rtScene, this.rtCamera);
+        this.renderer.setRenderTarget(prevTarget);
+        this.renderer.autoClear = prevAutoClear;
+
+        this.material.uniforms.uDirtMap.value = this.readRT.texture;
+    }
+
+    /**
+     * Paints a continuous 3D swept-roller onto the 2048x1024 GPU ping-pong RenderTarget.
+     * Zero CPU texture uploads and silky-smooth high-resolution curves at any moonScale.
+     */
+    public paintDirtCapsule(
+        p0x: number, p0y: number, p0z: number,
+        p1x: number, p1y: number, p1z: number,
+        fx: number, fy: number, fz: number,
+        lx: number, ly: number, lz: number,
+        halfWidth: number,
+        halfDepth: number,
+        sweepRate: number
+    ): void {
+        if (!this.renderer) return;
+
+        const u = this.rtBrushMat.uniforms;
+        u.uPrevDirtMap.value = this.readRT.texture;
+        (u.uP0.value as THREE.Vector3).set(p0x, p0y, p0z);
+        (u.uP1.value as THREE.Vector3).set(p1x, p1y, p1z);
+        (u.uFwd.value as THREE.Vector3).set(fx, fy, fz);
+        (u.uLeft.value as THREE.Vector3).set(lx, ly, lz);
+        u.uHalfWidth.value = halfWidth;
+        u.uHalfDepth.value = halfDepth;
+        u.uSweepRate.value = sweepRate;
+
+        this.rtQuad.material = this.rtBrushMat;
+
+        const prevTarget = this.renderer.getRenderTarget();
+        const prevAutoClear = this.renderer.autoClear;
+        this.renderer.autoClear = false;
+        this.renderer.setRenderTarget(this.writeRT);
+        this.renderer.render(this.rtScene, this.rtCamera);
+        this.renderer.setRenderTarget(prevTarget);
+        this.renderer.autoClear = prevAutoClear;
+
+        // Swap ping-pong buffers
+        const tmp = this.readRT;
+        this.readRT = this.writeRT;
+        this.writeRT = tmp;
+
+        this.material.uniforms.uDirtMap.value = this.readRT.texture;
+    }
+
     public refillDirt(): void {
+        const R = Math.max(0.5, this.moonScale);
+        const thetaOuter = Math.min(1.15, 0.50 / R);
+        const thetaInner = Math.min(1.10, 0.44 / R);
+        const uyOuter = Math.cos(thetaOuter);
+        const uyInner = Math.cos(thetaInner);
+
         const dirtArr = this.geometry.attributes.aDirt.array as Float32Array;
         const trailArr = this.geometry.attributes.aTrail.array as Float32Array;
 
-        dirtArr.fill(1.0);
-        trailArr.fill(0.0);
+        this.totalDirtSum = 0;
+        for (let i = 0; i < this.numVerts; i++) {
+            const uy = this.baseUnitPositions[i * 3 + 1];
+            if (uy >= uyInner) {
+                dirtArr[i] = 0.0;
+            } else if (uy <= uyOuter) {
+                dirtArr[i] = 1.0;
+                this.totalDirtSum += 1.0;
+            } else {
+                const t = (uyInner - uy) / (uyInner - uyOuter);
+                const smoothT = t * t * (3.0 - 2.0 * t);
+                dirtArr[i] = smoothT;
+                this.totalDirtSum += smoothT;
+            }
+            trailArr[i] = 0.0;
+        }
+
         this.activeTrailIndices.clear();
-        this.totalDirtSum = this.numVerts;
-        this.initialTotalDirt = this.numVerts;
+        this.initialTotalDirt = this.totalDirtSum;
 
         this.geometry.attributes.aDirt.needsUpdate = true;
         this.geometry.attributes.aTrail.needsUpdate = true;
+        this.populateDirtTexture(uyOuter, uyInner);
         this.updateVertexHeights();
     }
 
@@ -1012,12 +1103,17 @@ export class Moon {
         }
 
         posAttr.needsUpdate = true;
-        this.geometry.computeVertexNormals();
     }
 
     public getCleanPercentage(): number {
         if (this.initialTotalDirt <= 0) return 100;
         const cleaned = this.initialTotalDirt - this.totalDirtSum;
         return Math.max(0, Math.min(100, (cleaned / this.initialTotalDirt) * 100));
+    }
+
+    public getDustColor(tier: number): THREE.Color {
+        if (tier === 3) return new THREE.Color(this.currentPalette.dirt3Color);
+        if (tier === 2) return new THREE.Color(this.currentPalette.dirt2Color);
+        return new THREE.Color(this.currentPalette.dirt1Color);
     }
 }

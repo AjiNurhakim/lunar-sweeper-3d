@@ -3,18 +3,45 @@ export class SoundManager {
     private ctx: AudioContext | null = null;
     private engineOsc: OscillatorNode | null = null;
     private engineGain: GainNode | null = null;
+    private brushNoiseBuffer: AudioBuffer | null = null;
+    private lastBrushTime = 0;
 
     constructor(enabled = true) {
         this.enabled = enabled;
+        this.setupWarmupListeners();
     }
 
-    private initContext(): void {
+    private setupWarmupListeners(): void {
+        const unlock = () => {
+            this.initContext();
+            window.removeEventListener('pointerdown', unlock);
+            window.removeEventListener('keydown', unlock);
+            window.removeEventListener('touchstart', unlock);
+        };
+        window.addEventListener('pointerdown', unlock, { once: true, passive: true });
+        window.addEventListener('keydown', unlock, { once: true, passive: true });
+        window.addEventListener('touchstart', unlock, { once: true, passive: true });
+    }
+
+    public initContext(): void {
         if (!this.ctx) {
             const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
             this.ctx = new AudioCtx();
+            this.prepareNoiseBuffer();
         }
         if (this.ctx.state === 'suspended') {
             this.ctx.resume();
+        }
+    }
+
+    private prepareNoiseBuffer(): void {
+        if (!this.ctx || this.brushNoiseBuffer) return;
+        // Pre-create 0.25 seconds of reusable white noise buffer (eliminates GC & math.random spikes!)
+        const bufferSize = Math.floor(this.ctx.sampleRate * 0.25);
+        this.brushNoiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = this.brushNoiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * 0.15;
         }
     }
 
@@ -29,19 +56,15 @@ export class SoundManager {
     public playBrush(tier: number): void {
         if (!this.enabled) return;
         this.initContext();
-        if (!this.ctx) return;
+        if (!this.ctx || !this.brushNoiseBuffer) return;
 
-        // Procedural soft ASMR brush noise
-        const bufferSize = this.ctx.sampleRate * 0.08;
-        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-
-        for (let i = 0; i < bufferSize; i++) {
-            data[i] = (Math.random() * 2 - 1) * 0.15;
-        }
+        // Rate limit to prevent audio node queue flooding (at most every 55ms)
+        const now = performance.now();
+        if (now - this.lastBrushTime < 55) return;
+        this.lastBrushTime = now;
 
         const noise = this.ctx.createBufferSource();
-        noise.buffer = buffer;
+        noise.buffer = this.brushNoiseBuffer;
 
         const filter = this.ctx.createBiquadFilter();
         filter.type = 'bandpass';
@@ -102,6 +125,27 @@ export class SoundManager {
 
         osc.start();
         osc.stop(this.ctx.currentTime + 0.2);
+    }
+
+    public playHammerHit(shattered = false): void {
+        if (!this.enabled) return;
+        this.initContext();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(shattered ? 180 : 140, now);
+        osc.frequency.exponentialRampToValueAtTime(48, now + (shattered ? 0.16 : 0.10));
+
+        gain.gain.setValueAtTime(shattered ? 0.18 : 0.13, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + (shattered ? 0.17 : 0.11));
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.18);
     }
 
     public playUpgrade(): void {
